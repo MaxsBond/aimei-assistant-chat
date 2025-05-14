@@ -3,12 +3,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Message, ChatCompletionRequest } from '@/lib/api';
 import { knowledgeSearchTool } from '@/lib/rag/search-function';
 import { weatherTool } from '@/lib/functions/weather-function';
+import { callbackTool } from '@/lib/functions/callback-function';
 import { 
   handleAllToolCalls,
   parseToolCalls,
   extractCitations,
   assessConfidence,
-  createFallbackResponse
+  createFallbackResponse,
+  checkIfNeedsCallback
 } from '@/lib/rag/response-processor';
 import { MessageWithCitations, ToolCallResponse } from '@/lib/rag/types';
 import { createOpenAIHeaders } from '@/lib/rag/auth';
@@ -86,6 +88,7 @@ export async function POST(request: NextRequest) {
     // Add function calling tools if enabled
     if (enableFunctions) {
       tools.push(weatherTool);
+      tools.push(callbackTool);
     }
     
     const payload: ChatCompletionRequest & { tools?: any[] } = {
@@ -126,6 +129,32 @@ export async function POST(request: NextRequest) {
       
       // Process all tool calls
       const toolResults = await handleAllToolCalls(data);
+      
+      // Check if any of the tool calls was a callback suggestion
+      const callbackToolResult = toolResults.find(result => result.name === 'suggestCallback');
+      
+      if (callbackToolResult) {
+        // If the AI suggested a callback, parse the result and use it
+        try {
+          const callbackData = JSON.parse(callbackToolResult.content);
+          
+          // Return the response with callback needed
+          return NextResponse.json({
+            message: {
+              role: 'assistant',
+              content: callbackData.message || "I don't have enough information to answer this question completely. Would you like a callback from our team?",
+            },
+            callback: {
+              needed: true,
+              reason: callbackData.reason || "Incomplete information available",
+              urgency: callbackData.urgency || "medium",
+              topic: callbackData.topic || "the question"
+            }
+          });
+        } catch (error) {
+          console.error('Error processing callback suggestion:', error);
+        }
+      }
       
       // For the first tool (assuming it's a knowledge search), parse the results
       let retrievedDocuments = [];
@@ -205,12 +234,25 @@ export async function POST(request: NextRequest) {
       const confidence = assessConfidence(toolResults[0].content);
       console.log('Response confidence:', confidence);
       
+      // Determine if the response needs a callback option
+      const { needsCallback, reason } = checkIfNeedsCallback(
+        confidence, 
+        finalContent,
+        citations.length
+      );
+      
+      console.log(`Needs callback: ${needsCallback}, Reason: ${reason}`);
+      
       return NextResponse.json({
         message: messageWithCitations,
         rag: {
           used: true,
           confidence: confidence.score,
         },
+        callback: {
+          needed: needsCallback,
+          reason: reason
+        }
       });
     } else {
       // Standard response without RAG
@@ -219,6 +261,10 @@ export async function POST(request: NextRequest) {
         rag: {
           used: false,
         },
+        callback: {
+          needed: false,
+          reason: "No knowledge retrieval was performed"
+        }
       });
     }
   } catch (error) {

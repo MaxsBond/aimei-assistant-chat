@@ -4,6 +4,8 @@
 import { Citation, ConfidenceAssessment, ToolCall, ToolCallResponse, ToolResult } from './types';
 import { handleKnowledgeSearchCall } from './search-function';
 import { handleWeatherCall } from '../functions/weather-function';
+import { handleCallbackSuggestion } from '../functions/callback-function';
+import { detectLowQualityAnswer, getAnswerQualityAssessment } from './answer-quality';
 
 /**
  * Parse function calls from OpenAI response
@@ -37,6 +39,8 @@ export async function handleToolCall(toolCall: ToolCall): Promise<ToolResult> {
       content = await handleKnowledgeSearchCall(args);
     } else if (name === 'getWeather') {
       content = await handleWeatherCall(args);
+    } else if (name === 'suggestCallback') {
+      content = await handleCallbackSuggestion(args);
     } else {
       content = JSON.stringify({ error: `Unknown function: ${name}` });
     }
@@ -157,6 +161,21 @@ export function assessConfidence(searchResults: string): ConfidenceAssessment {
     console.error('Error assessing confidence:', error);
     return { score: 0, reasoning: 'Failed to assess confidence due to error' };
   }
+}
+
+/**
+ * Check if a response needs a callback based on quality assessment
+ * @param confidence - The confidence assessment
+ * @param responseContent - The response content
+ * @param citationsCount - Number of citations
+ * @returns Object with needsCallback flag and reason
+ */
+export function checkIfNeedsCallback(
+  confidence: ConfidenceAssessment, 
+  responseContent: string,
+  citationsCount: number = 0
+): { needsCallback: boolean; reason: string } {
+  return detectLowQualityAnswer(confidence, citationsCount, responseContent);
 }
 
 /**

@@ -7,6 +7,12 @@ export interface Message {
   role: MessageRole;
   content: string;
   citations?: Citation[];
+  callback?: CallbackInfo;
+}
+
+export interface CallbackInfo {
+  needed: boolean;
+  reason: string;
 }
 
 export interface ChatCompletionRequest {
@@ -59,13 +65,14 @@ export interface RAGResponse {
 export interface ChatApiResponse {
   message: Message;
   rag?: RAGResponse;
+  callback?: CallbackInfo;
 }
 
 // Client-side API calls to our Next.js API routes
 export async function sendMessage(
   messages: Message[], 
   options?: { enableRAG?: boolean, enableFunctions?: boolean }
-): Promise<Message> {
+): Promise<Message & { callback?: CallbackInfo }> {
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -84,7 +91,12 @@ export async function sendMessage(
     }
 
     const data: ChatApiResponse = await response.json();
-    return data.message;
+    
+    // Include callback information in the returned message
+    return {
+      ...data.message,
+      callback: data.callback
+    };
   } catch (error) {
     console.error('Error sending message:', error);
     throw new Error('Failed to send message. Please try again.');

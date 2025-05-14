@@ -18,6 +18,8 @@ export interface Message {
   citations?: Citation[]; // Citations for information sources (RAG feature)
   ragEnabled?: boolean;   // Whether the message was created with RAG
   confidence?: number;    // Confidence score for RAG responses (0-1)
+  needsCallback?: boolean; // Whether this message needs a callback option
+  callbackReason?: string; // The reason a callback is needed
 }
 
 /**
@@ -28,6 +30,18 @@ export interface Suggestion {
   content: string;      // Content of the suggestion
   used: boolean;        // Whether the suggestion has been used
   createdAt: Date;      // When the suggestion was created
+}
+
+/**
+ * Callback request information
+ */
+export interface CallbackRequest {
+  id: string;           // Unique identifier for the callback request
+  phoneNumber: string;  // User's phone number
+  query: string;        // The original query that needs followup
+  messageId: string;    // ID of the message that triggered the callback
+  submitted: Date;      // When the callback was requested
+  status: 'pending' | 'processing' | 'completed' | 'cancelled';
 }
 
 /**
@@ -56,9 +70,19 @@ interface ChatStore {
   suggestions: Suggestion[];   // Follow-up suggestions for the user
   ragSettings: RAGSettings;    // RAG settings
   functionSettings: FunctionSettings; // Function calling settings
+  callbackRequests: CallbackRequest[]; // Phone callback requests
+  showCallbackForm: boolean;   // Whether to show the callback form
+  activeCallbackMessageId: string | null; // ID of message triggering the callback form
 
   // Message Actions
-  addMessage: (content: string, role: MessageRole, options?: { citations?: Citation[], ragEnabled?: boolean, confidence?: number }) => void;  // Add a new message to the chat
+  addMessage: (content: string, role: MessageRole, options?: { 
+    id?: string,
+    citations?: Citation[], 
+    ragEnabled?: boolean, 
+    confidence?: number,
+    needsCallback?: boolean,
+    callbackReason?: string
+  }) => void;  // Add a new message to the chat
   updateMessage: (id: string, content: string) => void;      // Update a message's content
   deleteMessage: (id: string) => void;                       // Delete a specific message
   clearMessages: () => void;                                 // Clear all messages
@@ -82,6 +106,12 @@ interface ChatStore {
   // Function Settings Actions
   updateFunctionSettings: (settings: Partial<FunctionSettings>) => void; // Update function settings
   toggleFunctions: () => void;                                          // Toggle functions on/off
+
+  // Callback Actions
+  setShowCallbackForm: (show: boolean, messageId?: string) => void;   // Show/hide the callback form
+  addCallbackRequest: (phoneNumber: string, query: string, messageId: string) => void; // Add a callback request
+  updateCallbackStatus: (id: string, status: CallbackRequest['status']) => void; // Update callback status
+  getCallbackRequests: () => CallbackRequest[];              // Get all callback requests
 }
 
 /**
@@ -102,6 +132,9 @@ export const useChatStore = create<ChatStore>()(
       functionSettings: {
         enabled: true,
       },
+      callbackRequests: [],
+      showCallbackForm: false,
+      activeCallbackMessageId: null,
       
       // Message Actions
       addMessage: (content, role, options = {}) => 
@@ -109,13 +142,15 @@ export const useChatStore = create<ChatStore>()(
           messages: [
             ...state.messages,
             {
-              id: crypto.randomUUID(),
+              id: options.id || crypto.randomUUID(),
               content,
               role,
               timestamp: new Date(),
               citations: options.citations,
               ragEnabled: options.ragEnabled,
               confidence: options.confidence,
+              needsCallback: options.needsCallback,
+              callbackReason: options.callbackReason,
             },
           ],
         })),
@@ -211,6 +246,39 @@ export const useChatStore = create<ChatStore>()(
             enabled: !state.functionSettings.enabled,
           },
         })),
+
+      // Callback Actions
+      setShowCallbackForm: (show, messageId = null) => 
+        set({
+          showCallbackForm: show,
+          activeCallbackMessageId: messageId,
+        }),
+      
+      addCallbackRequest: (phoneNumber, query, messageId) =>
+        set((state) => ({
+          callbackRequests: [
+            ...state.callbackRequests,
+            {
+              id: crypto.randomUUID(),
+              phoneNumber,
+              query,
+              messageId,
+              submitted: new Date(),
+              status: 'pending',
+            }
+          ],
+          showCallbackForm: false,
+          activeCallbackMessageId: null,
+        })),
+      
+      updateCallbackStatus: (id, status) =>
+        set((state) => ({
+          callbackRequests: state.callbackRequests.map(request =>
+            request.id === id ? { ...request, status } : request
+          ),
+        })),
+      
+      getCallbackRequests: () => get().callbackRequests,
     }),
     {
       name: 'chat-storage', // unique name for localStorage
@@ -219,6 +287,7 @@ export const useChatStore = create<ChatStore>()(
         suggestions: state.suggestions,
         ragSettings: state.ragSettings,
         functionSettings: state.functionSettings,
+        callbackRequests: state.callbackRequests,
       }), // persist all settings
     }
   )

@@ -29,6 +29,7 @@ export function Chat() {
     functionSettings,
     toggleFunctions,
     updateFunctionSettings,
+    setShowCallbackForm,
   } = useChatStore();
 
   const handleSendMessage = async (content: string) => {
@@ -55,16 +56,25 @@ export function Chat() {
       });
 
       // Add assistant's response to the store with citations and confidence if available
+      const newMessageId = crypto.randomUUID();
       addMessage(
         responseMessage.content,
         "assistant",
         {
+          id: newMessageId, // Pass ID so we can reference it immediately
           citations: responseMessage.citations,
           ragEnabled: responseMessage.citations?.length > 0,
           confidence: responseMessage.citations?.length > 0 ? 
             getConfidenceFromCitations(responseMessage.citations) : undefined,
+          needsCallback: responseMessage.callback?.needed,
+          callbackReason: responseMessage.callback?.reason,
         }
       );
+
+      // If the response needs a callback, show the form immediately
+      if (responseMessage.callback?.needed) {
+        setShowCallbackForm(true, newMessageId);
+      }
 
       // Generate and set suggestions
       const messagesForSuggestions = [
