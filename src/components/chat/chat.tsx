@@ -6,6 +6,7 @@ import { ChatContainer } from "./chat-container";
 import { ChatInput } from "./chat-input";
 import { SuggestionsContainer } from "./suggestions-container";
 import { sendMessage, getSuggestions, Message as ApiMessage } from "@/lib/api";
+import { BookOpen, BookX } from "lucide-react";
 
 export function Chat() {
   const {
@@ -19,6 +20,9 @@ export function Chat() {
     markSuggestionAsUsed,
     getUnusedSuggestions,
     clearSuggestions,
+    ragSettings,
+    toggleRAG,
+    updateRAGSettings,
   } = useChatStore();
 
   const handleSendMessage = async (content: string) => {
@@ -32,21 +36,33 @@ export function Chat() {
       const apiMessages: ApiMessage[] = messages.map(message => ({
         role: message.role,
         content: message.content,
+        citations: message.citations,
       }));
       
       // Add the new user message in API format
       apiMessages.push({ role: "user", content });
 
-      // Send message to API and get response
-      const responseContent = await sendMessage(apiMessages);
+      // Send message to API and get response with RAG option
+      const responseMessage = await sendMessage(apiMessages, {
+        enableRAG: ragSettings.enabled,
+      });
 
-      // Add assistant's response to the store
-      addMessage(responseContent, "assistant");
+      // Add assistant's response to the store with citations and confidence if available
+      addMessage(
+        responseMessage.content,
+        "assistant",
+        {
+          citations: responseMessage.citations,
+          ragEnabled: responseMessage.citations?.length > 0,
+          confidence: responseMessage.citations?.length > 0 ? 
+            getConfidenceFromCitations(responseMessage.citations) : undefined,
+        }
+      );
 
       // Generate and set suggestions
       const messagesForSuggestions = [
         ...apiMessages,
-        { role: "assistant" as MessageRole, content: responseContent }
+        { role: "assistant" as MessageRole, content: responseMessage.content }
       ];
       
       const newSuggestions = await getSuggestions(messagesForSuggestions);
@@ -73,13 +89,45 @@ export function Chat() {
     markSuggestionAsUsed(suggestion.id);
     handleSendMessage(suggestion.content);
   };
+  
+  // Simple heuristic to estimate confidence from citations
+  const getConfidenceFromCitations = (citations: any[]) => {
+    if (!citations || citations.length === 0) return undefined;
+    
+    // More citations generally means higher confidence
+    const citationCount = Math.min(citations.length, 5);
+    
+    // Base confidence on citation count (0.6 to 0.9)
+    return 0.6 + (citationCount / 5) * 0.3;
+  };
 
   // Get only unused suggestions for display
   const unusedSuggestions = getUnusedSuggestions();
 
   return (
     <div className="flex flex-col h-[calc(100vh-11rem)]">
-      <div className="flex justify-end mb-2">
+      <div className="flex justify-between mb-2">
+        <button
+          onClick={toggleRAG}
+          className={`flex items-center gap-1 text-sm px-2 py-1 rounded-md ${
+            ragSettings.enabled 
+              ? 'bg-primary/10 text-primary' 
+              : 'bg-muted text-muted-foreground'
+          }`}
+        >
+          {ragSettings.enabled ? (
+            <>
+              <BookOpen className="w-4 h-4" />
+              <span>Knowledge Base: ON</span>
+            </>
+          ) : (
+            <>
+              <BookX className="w-4 h-4" />
+              <span>Knowledge Base: OFF</span>
+            </>
+          )}
+        </button>
+        
         <button
           onClick={handleClearChat}
           disabled={messages.length === 0 || isLoading}

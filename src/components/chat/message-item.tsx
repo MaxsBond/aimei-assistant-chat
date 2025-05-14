@@ -2,7 +2,7 @@
 
 import { Message } from "@/lib/store";
 import { formatDate } from "@/lib/utils";
-import { Bot, User } from "lucide-react";
+import { Bot, User, BookOpen, Check, AlertCircle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import rehypeHighlight from "rehype-highlight";
 import rehypeRaw from "rehype-raw";
@@ -11,6 +11,7 @@ import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 import remarkEmoji from "remark-emoji";
 import * as joypixels from 'emoji-toolkit';
+import { useState } from "react";
 
 interface MessageItemProps {
   message: Message;
@@ -18,6 +19,8 @@ interface MessageItemProps {
 
 export function MessageItem({ message }: MessageItemProps) {
   const isUser = message.role === "user";
+  const hasCitations = message.citations && message.citations.length > 0;
+  const [showCitations, setShowCitations] = useState(false);
   
   // Pre-process the message content to convert emoji shortcodes that might not be handled by remark-emoji
   const processedContent = joypixels.shortnameToUnicode(message.content);
@@ -165,9 +168,70 @@ export function MessageItem({ message }: MessageItemProps) {
             {processedContent}
           </ReactMarkdown>
         </div>
-        <div className={`text-xs mt-1 ${isUser ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-          {formatDate(message.timestamp)}
+        
+        {/* Display confidence level if available */}
+        {!isUser && message.confidence !== undefined && (
+          <div className={`flex items-center gap-1 text-xs mb-1 ${
+            message.confidence > 0.8 ? "text-green-600" : 
+            message.confidence > 0.5 ? "text-yellow-600" : "text-red-600"
+          }`}>
+            {message.confidence > 0.8 ? (
+              <Check className="w-3 h-3" />
+            ) : message.confidence > 0.5 ? (
+              <BookOpen className="w-3 h-3" />
+            ) : (
+              <AlertCircle className="w-3 h-3" />
+            )}
+            <span>
+              {message.confidence > 0.8 ? "High confidence" : 
+               message.confidence > 0.5 ? "Moderate confidence" : "Low confidence"}
+            </span>
+          </div>
+        )}
+        
+        {/* Citation toggle and timestamp */}
+        <div className="flex justify-between items-center text-xs mt-1">
+          <div className={`${isUser ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+            {formatDate(message.timestamp)}
+          </div>
+          
+          {hasCitations && !isUser && (
+            <button 
+              onClick={() => setShowCitations(!showCitations)}
+              className="text-xs text-primary/80 hover:text-primary flex items-center gap-1"
+            >
+              <BookOpen className="w-3 h-3" />
+              {showCitations ? "Hide sources" : "Show sources"}
+            </button>
+          )}
         </div>
+        
+        {/* Citations section */}
+        {hasCitations && showCitations && !isUser && (
+          <div className="mt-3 pt-2 border-t border-muted-foreground/20">
+            <h4 className="text-xs font-semibold mb-2 text-muted-foreground">Sources:</h4>
+            <ul className="space-y-2">
+              {message.citations?.map((citation, index) => (
+                <li key={index} className="text-xs">
+                  <div className="font-medium">{citation.metadata.title || citation.metadata.source}</div>
+                  {citation.metadata.url && (
+                    <a 
+                      href={citation.metadata.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-primary text-xs hover:underline"
+                    >
+                      {citation.metadata.url}
+                    </a>
+                  )}
+                  <div className="mt-1 italic text-muted-foreground text-xs">
+                    "{citation.text}"
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
       
       {/* Avatar for user messages */}
