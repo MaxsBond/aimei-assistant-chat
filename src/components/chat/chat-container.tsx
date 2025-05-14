@@ -3,13 +3,16 @@
 import { useEffect, useRef } from "react";
 import { Message } from "@/lib/store";
 import { MessageItem } from "./message-item";
+import Image from "next/image";
+import { WelcomeSuggestions } from "./welcome-suggestions";
 
 interface ChatContainerProps {
   messages: Message[];
   isLoading?: boolean;
+  onSendMessage?: (content: string) => void;
 }
 
-export function ChatContainer({ messages, isLoading = false }: ChatContainerProps) {
+export function ChatContainer({ messages, isLoading = false, onSendMessage }: ChatContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const shouldScrollRef = useRef(true);
   const lastMessageCountRef = useRef(0);
@@ -64,18 +67,35 @@ export function ChatContainer({ messages, isLoading = false }: ChatContainerProp
     }
   }, [isLoading]);
 
+  const handleSuggestionClick = (content: string) => {
+    if (onSendMessage) {
+      onSendMessage(content);
+    }
+  };
+
   return (
     <div 
       ref={containerRef}
-      className="flex-1 overflow-y-auto px-1 scroll-smooth"
+      className="flex-1 overflow-y-auto px-10 py-10 md:px-12 scroll-smooth"
     >
       {messages.length === 0 && (
         <div className="h-full flex items-center justify-center">
-          <div className="text-center p-6 max-w-md">
-            <h3 className="text-xl font-semibold mb-2">Welcome to Smart Assistant Bot</h3>
+          <div className="text-center p-6 max-w-xl">
+            <div className="w-28 h-28 overflow-hidden mx-auto mb-4 rounded-full flex items-center justify-center">
+              <Image 
+                src="/rectangle-avatar.svg" 
+                alt="AI Assistant"
+                width={112} 
+                height={112}
+                className="rounded-full"
+              />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">Hi, I'm Aimei smart assistant!</h3>
             <p className="text-muted-foreground">
-              Ask me anything and I'll do my best to help you with information, assistance, or creative content.
+              Ready to answer all your questions about franchise framework.
             </p>
+            
+            {onSendMessage && <WelcomeSuggestions onClick={handleSuggestionClick} />}
           </div>
         </div>
       )}
@@ -85,16 +105,25 @@ export function ChatContainer({ messages, isLoading = false }: ChatContainerProp
       ))}
 
       {isLoading && (
-        <div className="flex items-center gap-2 mb-4">
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <div className="w-5 h-5 flex items-center justify-center">
-              <div className="w-3 h-3 relative">
-                <div className="absolute inset-0 animate-ping rounded-full bg-primary/60 opacity-75" />
-              </div>
-            </div>
+        <div className="flex items-center gap-3 mb-4 mx-2">
+          <div className="flex-shrink-0 w-8 h-8 overflow-hidden rounded-full flex items-center justify-center">
+            <Image 
+              src="/rectangle-avatar.svg" 
+              alt="AI Assistant"
+              width={32} 
+              height={32}
+              className="rounded-full"
+            />
           </div>
           <div className="rounded-lg p-3 bg-muted">
-            <div className="text-muted-foreground">Thinking...</div>
+            <div className="text-muted-foreground flex items-center">
+              <span>Thinking</span>
+              <span className="ml-1 inline-flex">
+                <span className="animate-bounce [animation-delay:0ms]">.</span>
+                <span className="animate-bounce [animation-delay:150ms]">.</span>
+                <span className="animate-bounce [animation-delay:300ms]">.</span>
+              </span>
+            </div>
           </div>
         </div>
       )}

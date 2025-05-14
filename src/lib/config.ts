@@ -28,6 +28,8 @@ export const config = {
     get systemPrompt() {
       return SYSTEM_PROMPTS[this.promptType];
     },
+    // This will be called dynamically by the getActiveSystemPrompt function
+    // which handles custom prompts
   },
   ui: {
     suggestions: {

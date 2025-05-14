@@ -13,6 +13,7 @@ import remarkEmoji from "remark-emoji";
 import * as joypixels from 'emoji-toolkit';
 import { useState } from "react";
 import { CallbackForm } from "./callback-form";
+import Image from "next/image";
 
 interface MessageItemProps {
   message: Message;
@@ -50,8 +51,14 @@ export function MessageItem({ message }: MessageItemProps) {
       <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
         {/* Avatar for assistant/system messages */}
         {!isUser && (
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-            <Bot className="w-5 h-5" />
+          <div className="flex-shrink-0 w-8 h-8 overflow-hidden rounded-full flex items-center justify-center">
+            <Image 
+              src="/rectangle-avatar.svg" 
+              alt="AI Assistant"
+              width={32} 
+              height={32}
+              className="rounded-full"
+            />
           </div>
         )}
         
@@ -61,8 +68,8 @@ export function MessageItem({ message }: MessageItemProps) {
             isUser
               ? "bg-primary text-primary-foreground"
               : isCallbackConfirmation
-                ? "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-800 border"
-                : "bg-muted"
+                ? "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-800 border ml-3"
+                : "bg-muted ml-3"
           }`}
         >
           {isCallbackConfirmation ? (

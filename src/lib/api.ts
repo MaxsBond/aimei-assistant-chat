@@ -71,7 +71,12 @@ export interface ChatApiResponse {
 // Client-side API calls to our Next.js API routes
 export async function sendMessage(
   messages: Message[], 
-  options?: { enableRAG?: boolean, enableFunctions?: boolean }
+  options?: { 
+    enableRAG?: boolean, 
+    enableFunctions?: boolean,
+    useCustomPrompt?: boolean,
+    customPromptContent?: string
+  }
 ): Promise<Message & { callback?: CallbackInfo }> {
   try {
     const response = await fetch('/api/chat', {
@@ -82,7 +87,9 @@ export async function sendMessage(
       body: JSON.stringify({ 
         messages,
         enableRAG: options?.enableRAG ?? true, // Enable RAG by default
-        enableFunctions: options?.enableFunctions ?? true // Enable functions by default
+        enableFunctions: options?.enableFunctions ?? true, // Enable functions by default
+        useCustomPrompt: options?.useCustomPrompt ?? false, // Use custom prompt if specified
+        customPromptContent: options?.customPromptContent // Send the actual prompt content
       }),
     });
 

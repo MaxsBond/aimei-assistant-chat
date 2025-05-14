@@ -13,7 +13,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       {/* Header */}
       <header className="sticky top-0 z-10 border-b bg-background p-4 shadow-sm">
         <div className="container mx-auto flex items-center justify-between">
-          <h1 className="text-lg font-semibold">Smart Assistant Bot</h1>
+          <h1 className="text-lg font-semibold">Aimei</h1>
           <ThemeToggle />
         </div>
       </header>
@@ -26,7 +26,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       {/* Footer */}
       <footer className="border-t bg-background p-4">
         <div className="container mx-auto text-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} Smart Assistant Bot</p>
+          <p>© {new Date().getFullYear()} Aimei</p>
         </div>
       </footer>
     </div>

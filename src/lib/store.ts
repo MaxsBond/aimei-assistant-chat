@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Citation } from './rag/types';
+import { CustomPromptData } from '@/components/chat/custom-prompt';
 
 /**
  * Types of roles a message can have in the chat
@@ -61,6 +62,15 @@ export interface FunctionSettings {
 }
 
 /**
+ * Custom prompt settings interface
+ */
+export interface CustomPromptSettings {
+  enabled: boolean;        // Whether a custom prompt is enabled
+  customPrompts: CustomPromptData[];  // List of saved custom prompts
+  activePromptId: string | null;  // ID of the currently active prompt
+}
+
+/**
  * Chat store state and actions interface
  */
 interface ChatStore {
@@ -73,6 +83,8 @@ interface ChatStore {
   callbackRequests: CallbackRequest[]; // Phone callback requests
   showCallbackForm: boolean;   // Whether to show the callback form
   activeCallbackMessageId: string | null; // ID of message triggering the callback form
+  customPromptSettings: CustomPromptSettings; // Custom prompt settings
+  showCustomPromptForm: boolean; // Whether to show the custom prompt form
 
   // Message Actions
   addMessage: (content: string, role: MessageRole, options?: { 
@@ -112,6 +124,15 @@ interface ChatStore {
   addCallbackRequest: (phoneNumber: string, query: string, messageId: string) => void; // Add a callback request
   updateCallbackStatus: (id: string, status: CallbackRequest['status']) => void; // Update callback status
   getCallbackRequests: () => CallbackRequest[];              // Get all callback requests
+  
+  // Custom Prompt Actions
+  setShowCustomPromptForm: (show: boolean) => void;          // Show/hide the custom prompt form
+  addCustomPrompt: (promptData: CustomPromptData) => void;   // Add a new custom prompt
+  updateCustomPrompt: (id: string, promptData: CustomPromptData) => void; // Update a custom prompt
+  deleteCustomPrompt: (id: string) => void;                  // Delete a custom prompt
+  setActivePrompt: (id: string | null) => void;              // Set the active prompt
+  getActivePrompt: () => CustomPromptData | null;            // Get the currently active prompt
+  toggleCustomPrompt: () => void;                            // Toggle custom prompt on/off
 }
 
 /**
@@ -135,6 +156,12 @@ export const useChatStore = create<ChatStore>()(
       callbackRequests: [],
       showCallbackForm: false,
       activeCallbackMessageId: null,
+      customPromptSettings: {
+        enabled: false,
+        customPrompts: [],
+        activePromptId: null,
+      },
+      showCustomPromptForm: false,
       
       // Message Actions
       addMessage: (content, role, options = {}) => 
@@ -279,6 +306,93 @@ export const useChatStore = create<ChatStore>()(
         })),
       
       getCallbackRequests: () => get().callbackRequests,
+      
+      // Custom Prompt Actions
+      setShowCustomPromptForm: (show) => 
+        set({
+          showCustomPromptForm: show,
+        }),
+        
+      addCustomPrompt: (promptData) =>
+        set((state) => {
+          const newPrompt = {
+            ...promptData,
+            id: crypto.randomUUID(),
+          };
+          
+          return {
+            customPromptSettings: {
+              ...state.customPromptSettings,
+              customPrompts: [...state.customPromptSettings.customPrompts, newPrompt],
+              activePromptId: newPrompt.id, // Set new prompt as active
+              enabled: true, // Enable custom prompts
+            },
+          };
+        }),
+        
+      updateCustomPrompt: (id, promptData) =>
+        set((state) => ({
+          customPromptSettings: {
+            ...state.customPromptSettings,
+            customPrompts: state.customPromptSettings.customPrompts.map(prompt =>
+              prompt.id === id ? { ...promptData, id } : prompt
+            ),
+          },
+        })),
+        
+      deleteCustomPrompt: (id) =>
+        set((state) => {
+          const newPrompts = state.customPromptSettings.customPrompts.filter(
+            prompt => prompt.id !== id
+          );
+          
+          // If we're deleting the active prompt, set activePromptId to null
+          const newActivePromptId = state.customPromptSettings.activePromptId === id
+            ? null
+            : state.customPromptSettings.activePromptId;
+            
+          // If there are no prompts left, disable custom prompts
+          const newEnabled = newPrompts.length > 0 && 
+            state.customPromptSettings.enabled;
+          
+          return {
+            customPromptSettings: {
+              ...state.customPromptSettings,
+              customPrompts: newPrompts,
+              activePromptId: newActivePromptId,
+              enabled: newEnabled,
+            },
+          };
+        }),
+        
+      setActivePrompt: (id) =>
+        set((state) => ({
+          customPromptSettings: {
+            ...state.customPromptSettings,
+            activePromptId: id,
+            enabled: id !== null,
+          },
+        })),
+        
+      getActivePrompt: () => {
+        const { customPromptSettings } = get();
+        
+        if (!customPromptSettings.enabled || !customPromptSettings.activePromptId) {
+          return null;
+        }
+        
+        return customPromptSettings.customPrompts.find(
+          prompt => prompt.id === customPromptSettings.activePromptId
+        ) || null;
+      },
+      
+      toggleCustomPrompt: () =>
+        set((state) => ({
+          customPromptSettings: {
+            ...state.customPromptSettings,
+            enabled: !state.customPromptSettings.enabled,
+          },
+        })),
     }),
     {
       name: 'chat-storage', // unique name for localStorage
@@ -288,6 +402,7 @@ export const useChatStore = create<ChatStore>()(
         ragSettings: state.ragSettings,
         functionSettings: state.functionSettings,
         callbackRequests: state.callbackRequests,
+        customPromptSettings: state.customPromptSettings,
       }), // persist all settings
     }
   )
