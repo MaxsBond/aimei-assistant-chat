@@ -1,6 +1,7 @@
 import { config } from '@/lib/config';
 import { NextRequest, NextResponse } from 'next/server';
 import { Message, ChatCompletionRequest, MessageRole } from '@/lib/api';
+import { SUGGESTION_RULES } from '@/constants/prompts';
 
 // Rate limiting variables
 const API_RATE_LIMIT = 10; // requests per minute
@@ -59,7 +60,8 @@ export async function POST(request: NextRequest) {
       ...messages,
       {
         role: 'system' as MessageRole,
-        content: `Based on the conversation so far, generate ${config.ui.suggestions.count} follow-up questions or suggestions for the user. Keep each suggestion under ${config.ui.suggestions.maxLength} characters. Provide them as a numbered list. Make them diverse and relevant to the ongoing conversation.`
+        content: SUGGESTION_RULES.replace('{count}', config.ui.suggestions.count.toString())
+                                 .replace('{maxLength}', config.ui.suggestions.maxLength.toString())
       }
     ];
 

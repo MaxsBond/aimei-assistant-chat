@@ -21,7 +21,7 @@ export type PromptType = 'default' | 'creative' | 'technical';
 export const config = {
   appName: 'Smart Assistant Bot',
   openai: {
-    model: 'gpt-3.5-turbo', // Default model
+    model: 'gpt-4.1-mini', // Default model
     temperature: 0.7,
     max_tokens: 1000,
     promptType: 'default' as PromptType,
