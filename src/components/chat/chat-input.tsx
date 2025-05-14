@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, KeyboardEvent, useRef, useEffect } from "react";
-import { Send } from "lucide-react";
+import { Send, Loader2 } from "lucide-react";
 
 interface ChatInputProps {
   onSendMessage: (message: string) => void;
@@ -11,6 +11,13 @@ interface ChatInputProps {
 export function ChatInput({ onSendMessage, isLoading }: ChatInputProps) {
   const [message, setMessage] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-focus on page load
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, []);
 
   // Auto-resize textarea based on content
   useEffect(() => {
@@ -22,6 +29,13 @@ export function ChatInput({ onSendMessage, isLoading }: ChatInputProps) {
     }
   }, [message]);
 
+  // Re-focus after sending a message
+  useEffect(() => {
+    if (!isLoading && message === "" && textareaRef.current) {
+      textareaRef.current.focus();
+    }
+  }, [isLoading, message]);
+
   const handleSendMessage = () => {
     const trimmedMessage = message.trim();
     if (trimmedMessage && !isLoading) {
@@ -31,31 +45,47 @@ export function ChatInput({ onSendMessage, isLoading }: ChatInputProps) {
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Send message with Enter (without Shift)
     if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+    
+    // Allow Shift+Enter for new line
+    // (No additional code needed, as this is the default behavior)
+    
+    // Keyboard shortcut: Ctrl+Enter or Cmd+Enter also sends message
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       handleSendMessage();
     }
   };
 
   return (
-    <div className="border rounded-lg p-2 flex items-end gap-2 bg-background">
+    <div className={`border rounded-lg p-2 flex items-end gap-2 bg-background transition-colors ${isLoading ? 'border-primary/50' : ''}`}>
       <textarea
         ref={textareaRef}
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Type a message..."
-        className="flex-1 bg-transparent border-0 outline-none resize-none p-2 max-h-[200px] min-h-[56px]"
+        placeholder={isLoading ? "Waiting for response..." : "Type a message..."}
+        className="flex-1 bg-transparent border-0 outline-none resize-none p-2 max-h-[200px] min-h-[56px] transition-opacity"
         rows={1}
         disabled={isLoading}
+        style={{ opacity: isLoading ? 0.7 : 1 }}
+        aria-label="Message input"
       />
       <button
         onClick={handleSendMessage}
         disabled={isLoading || !message.trim()}
-        className="rounded-md p-2 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="rounded-md p-2 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
         aria-label="Send message"
       >
-        <Send className="h-5 w-5" />
+        {isLoading ? (
+          <Loader2 className="h-5 w-5 animate-spin" />
+        ) : (
+          <Send className="h-5 w-5" />
+        )}
       </button>
     </div>
   );

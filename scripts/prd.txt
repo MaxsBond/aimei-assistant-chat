@@ -1,4 +1,37 @@
-# Product Requirements Document: Smart Assistant Bot
+# AImei Chat Assistant - Product Requirements
+
+## Overview
+AImei Chat Assistant is a web-based AI chat application that allows users to interact with an AI assistant via text messages. The application supports different AI personality types through configurable system prompts.
+
+## Key Features
+
+### AI Chat Interface
+- Chat interface for sending and receiving messages
+- Loading states and error handling
+- Message history persistence
+
+### System Prompts Management
+- Multiple AI personality types through system prompts
+- Ability to switch between different prompt types
+- Extensible system for adding new prompt types
+- Centralized prompt management with documentation
+
+### API Integration
+- Integration with OpenAI API
+- Rate limiting for API requests
+- Handling API errors gracefully
+
+### UI Components
+- Responsive chat container
+- Message suggestions
+- Theme support (light/dark/system)
+
+## Technical Requirements
+- Next.js framework for frontend and API routes
+- TypeScript for type safety
+- OpenAI API integration
+- Configuration management
+- Clean code organization with proper separation of concerns
 
 ## 1. Introduction
 

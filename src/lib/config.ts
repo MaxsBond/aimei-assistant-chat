@@ -1,4 +1,22 @@
 // Application configuration settings
+import { SYSTEM_PROMPTS } from '@/constants';
+
+/**
+ * Available prompt types for the AI assistant
+ * 
+ * How to switch prompt types:
+ * 1. Import and update the config where needed:
+ *    import { config } from '@/lib/config';
+ *    config.openai.promptType = 'creative'; // Switch to creative mode
+ * 
+ * 2. Or modify this file directly to change the default
+ * 
+ * Available types:
+ * - default: Standard helpful assistant
+ * - creative: More imaginative responses
+ * - technical: Focused on programming and technical details
+ */
+export type PromptType = 'default' | 'creative' | 'technical';
 
 export const config = {
   appName: 'Smart Assistant Bot',
@@ -6,6 +24,10 @@ export const config = {
     model: 'gpt-3.5-turbo', // Default model
     temperature: 0.7,
     max_tokens: 1000,
+    promptType: 'default' as PromptType,
+    get systemPrompt() {
+      return SYSTEM_PROMPTS[this.promptType];
+    },
   },
   ui: {
     suggestions: {

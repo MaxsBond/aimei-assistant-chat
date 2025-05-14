@@ -54,10 +54,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Optional: Switch prompt type based on request parameter
+    // Example: if(body.promptType && ['default', 'creative', 'technical'].includes(body.promptType)) {
+    //   config.openai.promptType = body.promptType;
+    // }
+
+    // Add system message if not already present
+    const systemMessageExists = messages.some(msg => msg.role === 'system');
+    const messagesWithSystem = systemMessageExists 
+      ? messages 
+      : [{ role: 'system', content: config.openai.systemPrompt }, ...messages];
+
     // Prepare the request payload for OpenAI
     const payload: ChatCompletionRequest = {
       model: config.openai.model,
-      messages,
+      messages: messagesWithSystem,
       temperature: config.openai.temperature,
       max_tokens: config.openai.max_tokens,
     };
