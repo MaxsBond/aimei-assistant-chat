@@ -3,6 +3,7 @@
  */
 import { Citation, ConfidenceAssessment, ToolCall, ToolCallResponse, ToolResult } from './types';
 import { handleKnowledgeSearchCall } from './search-function';
+import { handleWeatherCall } from '../functions/weather-function';
 
 /**
  * Parse function calls from OpenAI response
@@ -34,6 +35,8 @@ export async function handleToolCall(toolCall: ToolCall): Promise<ToolResult> {
     // Match the function name to the appropriate handler
     if (name === 'searchKnowledge') {
       content = await handleKnowledgeSearchCall(args);
+    } else if (name === 'getWeather') {
+      content = await handleWeatherCall(args);
     } else {
       content = JSON.stringify({ error: `Unknown function: ${name}` });
     }

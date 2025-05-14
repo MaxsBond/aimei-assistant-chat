@@ -40,6 +40,13 @@ export interface RAGSettings {
 }
 
 /**
+ * Function calling settings interface
+ */
+export interface FunctionSettings {
+  enabled: boolean;     // Whether function calling is enabled
+}
+
+/**
  * Chat store state and actions interface
  */
 interface ChatStore {
@@ -48,6 +55,7 @@ interface ChatStore {
   isLoading: boolean;          // Loading state for async operations
   suggestions: Suggestion[];   // Follow-up suggestions for the user
   ragSettings: RAGSettings;    // RAG settings
+  functionSettings: FunctionSettings; // Function calling settings
 
   // Message Actions
   addMessage: (content: string, role: MessageRole, options?: { citations?: Citation[], ragEnabled?: boolean, confidence?: number }) => void;  // Add a new message to the chat
@@ -70,6 +78,10 @@ interface ChatStore {
   // RAG Settings Actions
   updateRAGSettings: (settings: Partial<RAGSettings>) => void; // Update RAG settings
   toggleRAG: () => void;                                      // Toggle RAG on/off
+  
+  // Function Settings Actions
+  updateFunctionSettings: (settings: Partial<FunctionSettings>) => void; // Update function settings
+  toggleFunctions: () => void;                                          // Toggle functions on/off
 }
 
 /**
@@ -86,6 +98,9 @@ export const useChatStore = create<ChatStore>()(
         enabled: true,
         includeCitations: true,
         showConfidence: false,
+      },
+      functionSettings: {
+        enabled: true,
       },
       
       // Message Actions
@@ -182,6 +197,20 @@ export const useChatStore = create<ChatStore>()(
             enabled: !state.ragSettings.enabled,
           },
         })),
+      
+      // Function Settings Actions
+      updateFunctionSettings: (settings) =>
+        set((state) => ({
+          functionSettings: { ...state.functionSettings, ...settings },
+        })),
+        
+      toggleFunctions: () =>
+        set((state) => ({
+          functionSettings: { 
+            ...state.functionSettings, 
+            enabled: !state.functionSettings.enabled,
+          },
+        })),
     }),
     {
       name: 'chat-storage', // unique name for localStorage
@@ -189,7 +218,8 @@ export const useChatStore = create<ChatStore>()(
         messages: state.messages,
         suggestions: state.suggestions,
         ragSettings: state.ragSettings,
-      }), // persist messages, suggestions, and RAG settings
+        functionSettings: state.functionSettings,
+      }), // persist all settings
     }
   )
 ); 

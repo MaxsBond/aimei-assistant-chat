@@ -64,7 +64,7 @@ export interface ChatApiResponse {
 // Client-side API calls to our Next.js API routes
 export async function sendMessage(
   messages: Message[], 
-  options?: { enableRAG?: boolean }
+  options?: { enableRAG?: boolean, enableFunctions?: boolean }
 ): Promise<Message> {
   try {
     const response = await fetch('/api/chat', {
@@ -74,7 +74,8 @@ export async function sendMessage(
       },
       body: JSON.stringify({ 
         messages,
-        enableRAG: options?.enableRAG ?? true // Enable RAG by default
+        enableRAG: options?.enableRAG ?? true, // Enable RAG by default
+        enableFunctions: options?.enableFunctions ?? true // Enable functions by default
       }),
     });
 

@@ -2,6 +2,7 @@ import { config } from '@/lib/config';
 import { NextRequest, NextResponse } from 'next/server';
 import { Message, ChatCompletionRequest } from '@/lib/api';
 import { knowledgeSearchTool } from '@/lib/rag/search-function';
+import { weatherTool } from '@/lib/functions/weather-function';
 import { 
   handleAllToolCalls,
   parseToolCalls,
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const messages: Message[] = body.messages;
     const enableRAG: boolean = body.enableRAG ?? true; // Enable RAG by default
+    const enableFunctions: boolean = body.enableFunctions ?? true; // Enable function calling by default
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
@@ -74,7 +76,18 @@ export async function POST(request: NextRequest) {
       : [{ role: 'system', content: config.openai.systemPrompt }, ...messages];
 
     // Prepare the request payload for OpenAI
-    const tools = enableRAG ? [knowledgeSearchTool] : [];
+    const tools = [];
+    
+    // Add RAG tool if enabled
+    if (enableRAG) {
+      tools.push(knowledgeSearchTool);
+    }
+    
+    // Add function calling tools if enabled
+    if (enableFunctions) {
+      tools.push(weatherTool);
+    }
+    
     const payload: ChatCompletionRequest & { tools?: any[] } = {
       model: config.openai.model,
       messages: messagesWithSystem,
@@ -82,8 +95,8 @@ export async function POST(request: NextRequest) {
       max_tokens: config.openai.max_tokens,
     };
     
-    // Add tools array for RAG if enabled
-    if (enableRAG && tools.length > 0) {
+    // Add tools array if we have any tools
+    if (tools.length > 0) {
       payload.tools = tools;
     }
 
