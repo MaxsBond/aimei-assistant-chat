@@ -8,11 +8,21 @@ export interface Message {
   content: string;
   citations?: Citation[];
   callback?: CallbackInfo;
+  showCalendly?: boolean;
 }
 
 export interface CallbackInfo {
   needed: boolean;
   reason: string;
+  urgency?: string;
+  topic?: string;
+}
+
+export interface CalendlyInfo {
+  show: boolean;
+  reason: string;
+  meetingType?: string;
+  topic?: string;
 }
 
 export interface ChatCompletionRequest {
@@ -66,6 +76,7 @@ export interface ChatApiResponse {
   message: Message;
   rag?: RAGResponse;
   callback?: CallbackInfo;
+  calendly?: CalendlyInfo;
 }
 
 // Client-side API calls to our Next.js API routes
@@ -77,7 +88,7 @@ export async function sendMessage(
     useCustomPrompt?: boolean,
     customPromptContent?: string
   }
-): Promise<Message & { callback?: CallbackInfo }> {
+): Promise<Message & { callback?: CallbackInfo, calendly?: CalendlyInfo }> {
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -99,10 +110,11 @@ export async function sendMessage(
 
     const data: ChatApiResponse = await response.json();
     
-    // Include callback information in the returned message
+    // Include callback and calendly information in the returned message
     return {
       ...data.message,
-      callback: data.callback
+      callback: data.callback,
+      calendly: data.calendly
     };
   } catch (error) {
     console.error('Error sending message:', error);

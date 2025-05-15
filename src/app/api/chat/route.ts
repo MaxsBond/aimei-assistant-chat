@@ -4,6 +4,7 @@ import { Message, ChatCompletionRequest, MessageRole } from '@/lib/api';
 import { knowledgeSearchTool } from '@/lib/rag/search-function';
 import { weatherTool } from '@/lib/functions/weather-function';
 import { callbackTool } from '@/lib/functions/callback-function';
+import { calendlyTool, handleCalendlySuggestion } from '@/lib/functions/calendly-function';
 import { 
   handleAllToolCalls,
   parseToolCalls,
@@ -104,6 +105,7 @@ export async function POST(request: NextRequest) {
     if (enableFunctions) {
       tools.push(weatherTool);
       tools.push(callbackTool);
+      tools.push(calendlyTool);
     }
     
     const payload: ChatCompletionRequest & { tools?: any[] } = {
@@ -147,6 +149,7 @@ export async function POST(request: NextRequest) {
       
       // Check if any of the tool calls was a callback suggestion
       const callbackToolResult = toolResults.find(result => result.name === 'suggestCallback');
+      const calendlyToolResult = toolResults.find(result => result.name === 'suggestCalendlyBooking');
       
       if (callbackToolResult) {
         // If the AI suggested a callback, parse the result and use it
@@ -168,6 +171,30 @@ export async function POST(request: NextRequest) {
           });
         } catch (error) {
           console.error('Error processing callback suggestion:', error);
+        }
+      }
+      
+      // If the AI suggested a Calendly booking, parse the result and use it
+      if (calendlyToolResult) {
+        try {
+          const calendlyData = JSON.parse(calendlyToolResult.content);
+          
+          // Return the response with Calendly booking option
+          return NextResponse.json({
+            message: {
+              role: 'assistant',
+              content: calendlyData.message || "I'd recommend scheduling a meeting to discuss this further. You can book a time below.",
+              showCalendly: true
+            },
+            calendly: {
+              show: true,
+              reason: calendlyData.reason || "Further discussion needed",
+              meetingType: calendlyData.meetingType || "general",
+              topic: calendlyData.topic || "your question"
+            }
+          });
+        } catch (error) {
+          console.error('Error processing Calendly suggestion:', error);
         }
       }
       

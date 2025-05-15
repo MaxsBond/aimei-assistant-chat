@@ -80,6 +80,7 @@ export function Chat() {
             getConfidenceFromCitations(responseMessage.citations || []) : undefined,
           needsCallback: responseMessage.callback?.needed,
           callbackReason: responseMessage.callback?.reason,
+          showCalendly: responseMessage.calendly?.show
         }
       );
 

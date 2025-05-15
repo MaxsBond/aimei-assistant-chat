@@ -14,6 +14,7 @@ import * as joypixels from 'emoji-toolkit';
 import { useState } from "react";
 import { CallbackForm } from "./callback-form";
 import Image from "next/image";
+import CalendlyTrigger from "../calendly/calendly-trigger";
 
 interface MessageItemProps {
   message: Message;
@@ -214,6 +215,13 @@ export function MessageItem({ message }: MessageItemProps) {
                   {processedContent}
                 </ReactMarkdown>
               </div>
+              
+              {/* Display Calendly trigger if message has showCalendly flag */}
+              {!isUser && message.showCalendly && (
+                <div className="mt-3">
+                  <CalendlyTrigger buttonText="Schedule a Meeting" dialogTitle="Book a Meeting Time" />
+                </div>
+              )}
               
               {/* Display confidence level if available */}
               {!isUser && message.confidence !== undefined && (

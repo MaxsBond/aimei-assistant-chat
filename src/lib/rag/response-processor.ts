@@ -5,6 +5,7 @@ import { Citation, ConfidenceAssessment, ToolCall, ToolCallResponse, ToolResult 
 import { handleKnowledgeSearchCall } from './search-function';
 import { handleWeatherCall } from '../functions/weather-function';
 import { handleCallbackSuggestion } from '../functions/callback-function';
+import { handleCalendlySuggestion } from '../functions/calendly-function';
 import { detectLowQualityAnswer, getAnswerQualityAssessment } from './answer-quality';
 
 /**
@@ -41,6 +42,8 @@ export async function handleToolCall(toolCall: ToolCall): Promise<ToolResult> {
       content = await handleWeatherCall(args);
     } else if (name === 'suggestCallback') {
       content = await handleCallbackSuggestion(args);
+    } else if (name === 'suggestCalendlyBooking') {
+      content = await handleCalendlySuggestion(args);
     } else {
       content = JSON.stringify({ error: `Unknown function: ${name}` });
     }

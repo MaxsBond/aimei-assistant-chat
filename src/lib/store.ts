@@ -21,6 +21,7 @@ export interface Message {
   confidence?: number;    // Confidence score for RAG responses (0-1)
   needsCallback?: boolean; // Whether this message needs a callback option
   callbackReason?: string; // The reason a callback is needed
+  showCalendly?: boolean;  // Whether this message should show a Calendly booking option
 }
 
 /**
@@ -93,7 +94,8 @@ interface ChatStore {
     ragEnabled?: boolean, 
     confidence?: number,
     needsCallback?: boolean,
-    callbackReason?: string
+    callbackReason?: string,
+    showCalendly?: boolean
   }) => void;  // Add a new message to the chat
   updateMessage: (id: string, content: string) => void;      // Update a message's content
   deleteMessage: (id: string) => void;                       // Delete a specific message
@@ -178,6 +180,7 @@ export const useChatStore = create<ChatStore>()(
               confidence: options.confidence,
               needsCallback: options.needsCallback,
               callbackReason: options.callbackReason,
+              showCalendly: options.showCalendly,
             },
           ],
         })),
