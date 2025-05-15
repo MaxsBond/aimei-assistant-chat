@@ -1,0 +1,14 @@
+.git
+.github
+node_modules
+.eslintrc
+eslint.config.mjs
+README.md
+README-RAG.md
+.env.local
+.env.development.local
+.taskmasterconfig
+.roomodes
+.windsurfrules
+tasks/
+docs/ 

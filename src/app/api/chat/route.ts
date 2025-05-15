@@ -1,6 +1,6 @@
 import { config } from '@/lib/config';
 import { NextRequest, NextResponse } from 'next/server';
-import { Message, ChatCompletionRequest } from '@/lib/api';
+import { Message, ChatCompletionRequest, MessageRole } from '@/lib/api';
 import { knowledgeSearchTool } from '@/lib/rag/search-function';
 import { weatherTool } from '@/lib/functions/weather-function';
 import { callbackTool } from '@/lib/functions/callback-function';
@@ -88,9 +88,9 @@ export async function POST(request: NextRequest) {
 
     // Add system message if not already present
     const systemMessageExists = messages.some(msg => msg.role === 'system');
-    const messagesWithSystem = systemMessageExists 
-      ? messages 
-      : [{ role: 'system', content: systemPrompt }, ...messages];
+    const messagesWithSystem = useCustomPrompt && customPromptContent 
+      ? [{ role: 'system' as MessageRole, content: customPromptContent }, ...messages]
+      : [{ role: 'system' as MessageRole, content: systemPrompt }, ...messages];
 
     // Prepare the request payload for OpenAI
     const tools = [];
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
     
     const payload: ChatCompletionRequest & { tools?: any[] } = {
       model: config.openai.model,
-      messages: messagesWithSystem,
+      messages: messagesWithSystem as Message[],
       temperature: config.openai.temperature,
       max_tokens: config.openai.max_tokens,
     };
