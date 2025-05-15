@@ -11,10 +11,12 @@ import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 import remarkEmoji from "remark-emoji";
 import * as joypixels from 'emoji-toolkit';
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CallbackForm } from "./callback-form";
 import Image from "next/image";
 import CalendlyTrigger from "../calendly/calendly-trigger";
+import { Button } from "@/components/ui/button";
+import { validatePhoneNumber, formatPhoneNumber } from "@/lib/validation";
 
 interface MessageItemProps {
   message: Message;
@@ -25,8 +27,14 @@ export function MessageItem({ message }: MessageItemProps) {
   const hasCitations = message.citations && message.citations.length > 0;
   const [showCitations, setShowCitations] = useState(false);
   const [showCallbackButton, setShowCallbackButton] = useState(true);
+  const [showInlineCallbackForm, setShowInlineCallbackForm] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [formattedNumber, setFormattedNumber] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitted, setIsSubmitted] = useState(false);
   
-  const { setShowCallbackForm, showCallbackForm, activeCallbackMessageId } = useChatStore();
+  const { setShowCallbackForm, showCallbackForm, activeCallbackMessageId, addCallbackRequest, addMessage, messages } = useChatStore();
   
   // Check if this message has the callback form active
   const hasActiveCallback = !isUser && message.needsCallback && activeCallbackMessageId === message.id;
@@ -37,14 +45,115 @@ export function MessageItem({ message }: MessageItemProps) {
   // Check if this is a callback confirmation message
   const isCallbackConfirmation = !isUser && processedContent.startsWith('📞 Thank you for submitting your callback request');
   
+  // Format the phone number as it's typed
+  useEffect(() => {
+    if (phoneNumber) {
+      setFormattedNumber(formatPhoneNumber(phoneNumber));
+    }
+  }, [phoneNumber]);
+  
+  // Initialize the inline form visibility on mount
+  useEffect(() => {
+    if (!isUser && message.needsCallback && !isCallbackConfirmation) {
+      setShowInlineCallbackForm(true);
+    }
+  }, [message.needsCallback, isUser, isCallbackConfirmation]);
+
+  // Check if there's already a callback confirmation for this message in the chat
+  const hasExistingConfirmation = useEffect(() => {
+    if (!isUser && message.needsCallback) {
+      // Look for confirmation messages that might be related to this message
+      const confirmationExists = messages.some(m => 
+        m.role === "assistant" && 
+        m.content.startsWith('📞 Thank you for submitting your callback request') &&
+        m.content.includes(message.id)
+      );
+      
+      if (confirmationExists) {
+        setIsSubmitted(true);
+        setShowInlineCallbackForm(false);
+      }
+    }
+  }, [messages, message.id, message.needsCallback, isUser]);
+  
+  // Extract topic from the query for more personalized confirmation
+  const getTopic = () => {
+    const firstSentence = message.content.split(/[.!?]/)[0];
+    const shortTopic = firstSentence.length > 40 
+      ? firstSentence.substring(0, 40) + '...' 
+      : firstSentence;
+    return shortTopic;
+  };
+  
   const handleRequestCallback = () => {
-    setShowCallbackForm(true, message.id);
+    setShowInlineCallbackForm(true);
     setShowCallbackButton(false);
   };
   
   const handleCloseCallbackForm = () => {
     setShowCallbackForm(false);
+    setShowInlineCallbackForm(false);
     // Keep the button hidden after closing
+  };
+
+  const handleSubmitCallback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage("");
+    
+    // Validate phone number
+    const { isValid, error } = validatePhoneNumber(phoneNumber);
+    if (!isValid) {
+      setErrorMessage(error || "Please enter a valid phone number");
+      return;
+    }
+    
+    try {
+      setIsSubmitting(true);
+      
+      // Send the request to our API endpoint
+      const response = await fetch('/api/callback-request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          phoneNumber: formattedNumber || phoneNumber, 
+          messageId: message.id, 
+          query: message.content 
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to submit callback request');
+      }
+      
+      // Update local state in Zustand store
+      addCallbackRequest(formattedNumber || phoneNumber, message.content, message.id);
+      
+      // Add confirmation message to the chat
+      const displayNumber = formattedNumber || phoneNumber;
+      const topic = getTopic();
+      
+      addMessage(
+        `📞 Thank you for submitting your callback request! 
+        
+We've received your phone number (${displayNumber}) and will call you as soon as possible regarding: "${topic}"
+
+Our team is reviewing your question and will typically respond within 24-48 hours. For urgent matters, you can expect a call within the next business day.`,
+        "assistant"
+      );
+      
+      // Hide the form and mark as submitted
+      setShowInlineCallbackForm(false);
+      setIsSubmitted(true);
+      
+    } catch (error) {
+      console.error("Error submitting callback request:", error);
+      setErrorMessage(error instanceof Error ? error.message : "There was an error submitting your request. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   return (
@@ -69,8 +178,8 @@ export function MessageItem({ message }: MessageItemProps) {
             isUser
               ? "bg-primary text-primary-foreground"
               : isCallbackConfirmation
-                ? "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-800 border ml-3"
-                : "bg-muted ml-3"
+                ? "bg-green-100 dark:bg-green-900/30 border-green-300 dark:border-green-800 border"
+                : "bg-muted"
           }`}
         >
           {isCallbackConfirmation ? (
@@ -223,6 +332,54 @@ export function MessageItem({ message }: MessageItemProps) {
                 </div>
               )}
               
+              {/* Display inline callback form directly only if not already submitted */}
+              {!isUser && message.needsCallback && !isCallbackConfirmation && !isSubmitted && (
+                <div className="mt-3 border-t pt-3 border-primary/10">
+                  <div className="mb-2 flex items-center">
+                    <Phone className="w-4 h-4 mr-2 text-primary" />
+                    <span className="font-medium text-sm">Enter your phone number</span>
+                  </div>
+                  
+                  {errorMessage && (
+                    <div className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 p-2 rounded-md mb-2 flex items-center text-xs">
+                      <AlertCircle className="w-3 h-3 mr-1 flex-shrink-0" />
+                      {errorMessage}
+                    </div>
+                  )}
+                  
+                  <form onSubmit={handleSubmitCallback} className="flex gap-2 items-end">
+                    <div className="flex-1">
+                      <input
+                        type="tel"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        placeholder="+1 (123) 456-7890"
+                        className="w-full p-2 text-sm rounded-md border bg-background focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none"
+                        disabled={isSubmitting}
+                        required
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting}
+                      size="sm"
+                    >
+                      {isSubmitting ? "Submitting..." : "Submit"}
+                    </Button>
+                  </form>
+                </div>
+              )}
+              
+              {/* Show a notice when already submitted */}
+              {!isUser && message.needsCallback && !isCallbackConfirmation && isSubmitted && (
+                <div className="mt-3 border-t pt-3 border-primary/10">
+                  <div className="flex items-center text-sm text-green-700 dark:text-green-400">
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    <span>Callback request submitted</span>
+                  </div>
+                </div>
+              )}
+              
               {/* Display confidence level if available */}
               {!isUser && message.confidence !== undefined && (
                 <div className={`flex items-center gap-1 text-xs mb-1 ${
@@ -253,18 +410,6 @@ export function MessageItem({ message }: MessageItemProps) {
             
             {!isCallbackConfirmation && (
               <div className="flex gap-2">
-                {/* Callback button for low quality answers */}
-                {!isUser && message.needsCallback && showCallbackButton && (
-                  <button 
-                    onClick={handleRequestCallback}
-                    className="text-xs text-primary/80 hover:text-primary flex items-center gap-1"
-                    title={message.callbackReason || "Request callback for this question"}
-                  >
-                    <Phone className="w-3 h-3" />
-                    Request callback
-                  </button>
-                )}
-                
                 {/* Citations button */}
                 {hasCitations && !isUser && (
                   <button 
@@ -320,16 +465,6 @@ export function MessageItem({ message }: MessageItemProps) {
           </div>
         )}
       </div>
-      
-      {/* Callback form */}
-      {hasActiveCallback && !isCallbackConfirmation && (
-        <div className="ml-8 mr-8 mt-2">
-          <CallbackForm 
-            messageId={message.id} 
-            onClose={handleCloseCallbackForm} 
-          />
-        </div>
-      )}
     </div>
   );
 } 

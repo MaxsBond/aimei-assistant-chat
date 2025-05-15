@@ -55,14 +55,14 @@ export async function handleCallbackSuggestion(args: string): Promise<string> {
       reason,
       urgency,
       topic,
-      message: "I don't have a complete answer to your question. A callback from our team would be the best way to address this."
+      message: "I don't have a complete answer from our knowledge base. Leave your phone number, and we'll call you back when we have the information you need."
     });
   } catch (error) {
     console.error('Error handling callback suggestion:', error);
     return JSON.stringify({
       needsCallback: true,
       reason: 'Error processing callback suggestion',
-      message: "I'm having trouble finding a complete answer to your question. A callback might be helpful."
+      message: "I don't have a complete answer from our knowledge base. Leave your phone number, and we'll call you back when we have the information you need."
     });
   }
 } 

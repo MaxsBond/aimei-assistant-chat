@@ -89,14 +89,16 @@ export function Chat() {
         setShowCallbackForm(true, newMessageId);
       }
 
-      // Generate and set suggestions
-      const messagesForSuggestions = [
-        ...apiMessages,
-        { role: "assistant" as MessageRole, content: responseMessage.content }
-      ];
-      
-      const newSuggestions = await getSuggestions(messagesForSuggestions);
-      setSuggestions(newSuggestions);
+      // Generate and set suggestions only if there's no callback request or calendly booking
+      if (!responseMessage.callback?.needed && !responseMessage.calendly?.show) {
+        const messagesForSuggestions = [
+          ...apiMessages,
+          { role: "assistant" as MessageRole, content: responseMessage.content }
+        ];
+        
+        const newSuggestions = await getSuggestions(messagesForSuggestions);
+        setSuggestions(newSuggestions);
+      }
     } catch (error) {
       console.error("Error processing message:", error);
       addMessage(
