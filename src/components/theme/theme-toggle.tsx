@@ -15,19 +15,19 @@ export function ThemeToggle() {
 
   // Don't render anything during SSR or when hydrating
   if (!mounted) {
-    return <div className="w-9 h-9"></div>; // Placeholder with same size
+    return <div className="w-4 h-4"></div>; // Placeholder with same size as other icons
   }
 
   return (
     <button
       onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-      className="rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-primary hover:bg-muted"
+      className="flex items-center gap-1 text-sm px-2 py-1 rounded-md bg-muted text-muted-foreground hover:bg-muted/80"
       aria-label="Toggle theme"
     >
       {theme === "light" ? (
-        <Moon className="h-5 w-5" />
+        <Moon className="w-4 h-4" />
       ) : (
-        <Sun className="h-5 w-5" />
+        <Sun className="w-4 h-4" />
       )}
     </button>
   );

@@ -64,7 +64,7 @@ export function MessageItem({ message }: MessageItemProps) {
         
         {/* Message content */}
         <div
-          className={`rounded-lg p-3 max-w-[80%] ${
+          className={`rounded-lg p-3 max-w-[95%] sm:max-w-[90%] md:max-w-[85%] lg:max-w-[80%] ${
             isUser
               ? "bg-primary text-primary-foreground"
               : isCallbackConfirmation
@@ -82,7 +82,7 @@ export function MessageItem({ message }: MessageItemProps) {
             </div>
           ) : (
             <>
-              <div className="prose prose-sm dark:prose-invert max-w-none">
+              <div className="prose prose-sm sm:prose-sm md:prose-sm lg:prose-base dark:prose-invert max-w-none">
                 <ReactMarkdown 
                   remarkPlugins={[remarkGfm, [remarkEmoji, { emoticon: true }]]}
                   rehypePlugins={[rehypeRaw, rehypeHighlight, rehypeSlug]}
@@ -95,32 +95,32 @@ export function MessageItem({ message }: MessageItemProps) {
                     ),
                     // Custom heading elements with appropriate styling
                     h1: ({ children, ...props }) => (
-                      <h1 className="text-2xl font-bold mt-6 mb-4 pb-1 border-b" {...props}>
+                      <h1 className="text-xl sm:text-xl md:text-2xl font-bold mt-6 mb-4 pb-1 border-b" {...props}>
                         {children}
                       </h1>
                     ),
                     h2: ({ children, ...props }) => (
-                      <h2 className="text-xl font-bold mt-5 mb-3" {...props}>
+                      <h2 className="text-lg sm:text-lg md:text-xl font-bold mt-5 mb-3" {...props}>
                         {children}
                       </h2>
                     ),
                     h3: ({ children, ...props }) => (
-                      <h3 className="text-lg font-bold mt-4 mb-2" {...props}>
+                      <h3 className="text-base sm:text-base md:text-lg font-bold mt-4 mb-2" {...props}>
                         {children}
                       </h3>
                     ),
                     h4: ({ children, ...props }) => (
-                      <h4 className="text-base font-bold mt-3 mb-2" {...props}>
+                      <h4 className="text-sm sm:text-sm md:text-base font-bold mt-3 mb-2" {...props}>
                         {children}
                       </h4>
                     ),
                     h5: ({ children, ...props }) => (
-                      <h5 className="text-sm font-bold mt-3 mb-1" {...props}>
+                      <h5 className="text-xs sm:text-xs md:text-sm font-bold mt-3 mb-1" {...props}>
                         {children}
                       </h5>
                     ),
                     h6: ({ children, ...props }) => (
-                      <h6 className="text-sm font-semibold italic mt-3 mb-1" {...props}>
+                      <h6 className="text-xs sm:text-xs md:text-sm font-semibold italic mt-3 mb-1" {...props}>
                         {children}
                       </h6>
                     ),
@@ -129,31 +129,31 @@ export function MessageItem({ message }: MessageItemProps) {
                       const { inline } = props;
                       if (inline) {
                         return (
-                          <code className={`${className} px-1 py-0.5 rounded bg-muted-foreground/10`} {...props}>
+                          <code className={`${className} px-1 py-0.5 rounded bg-muted-foreground/10 text-xs sm:text-sm md:text-base`} {...props}>
                             {children}
                           </code>
                         );
                       }
                       return (
-                        <code className={`${className} block`} {...props}>
+                        <code className={`${className} block text-xs sm:text-xs md:text-sm`} {...props}>
                           {children}
                         </code>
                       );
                     },
                     // Custom rendering for pre tags (code blocks)
                     pre: ({ children, ...props }) => (
-                      <pre className="p-0 rounded-md bg-muted-foreground/10 overflow-auto" {...props}>
+                      <pre className="p-0 rounded-md bg-muted-foreground/10 overflow-auto text-xs sm:text-xs md:text-sm" {...props}>
                         {children}
                       </pre>
                     ),
                     // Custom list styling for proper nesting
                     ul: ({ children, depth = 0, ...props }: any) => (
-                      <ul className="pl-5 list-disc space-y-1 my-3" {...props}>
+                      <ul className="pl-5 list-disc space-y-1 my-3 text-sm sm:text-sm md:text-base" {...props}>
                         {children}
                       </ul>
                     ),
                     ol: ({ children, ...props }) => (
-                      <ol className="pl-5 list-decimal space-y-1 my-3" {...props}>
+                      <ol className="pl-5 list-decimal space-y-1 my-3 text-sm sm:text-sm md:text-base" {...props}>
                         {children}
                       </ol>
                     ),
@@ -164,6 +164,12 @@ export function MessageItem({ message }: MessageItemProps) {
                         </li>
                       );
                     },
+                    // Add custom paragraph rendering with responsive text size
+                    p: ({ children, ...props }) => (
+                      <p className="my-2 text-sm sm:text-sm md:text-base" {...props}>
+                        {children}
+                      </p>
+                    ),
                     // Better table styling
                     table: ({ children, ...props }) => (
                       <div className="overflow-x-auto my-4">
@@ -188,18 +194,18 @@ export function MessageItem({ message }: MessageItemProps) {
                       </tr>
                     ),
                     th: ({ children, ...props }) => (
-                      <th className="px-4 py-2 text-left font-medium" {...props}>
+                      <th className="px-2 sm:px-3 md:px-4 py-2 text-left font-medium text-xs sm:text-sm md:text-base" {...props}>
                         {children}
                       </th>
                     ),
                     td: ({ children, ...props }) => (
-                      <td className="px-4 py-2 border-border" {...props}>
+                      <td className="px-2 sm:px-3 md:px-4 py-2 border-border text-xs sm:text-sm md:text-base" {...props}>
                         {children}
                       </td>
                     ),
                     // Blockquote styling
                     blockquote: ({ children, ...props }) => (
-                      <blockquote className="pl-4 border-l-4 border-primary/30 italic my-4" {...props}>
+                      <blockquote className="pl-4 border-l-4 border-primary/30 italic my-4 text-sm sm:text-sm md:text-base" {...props}>
                         {children}
                       </blockquote>
                     ),
@@ -295,8 +301,14 @@ export function MessageItem({ message }: MessageItemProps) {
         
         {/* Avatar for user messages */}
         {isUser && (
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/80 flex items-center justify-center text-primary-foreground">
-            <User className="w-5 h-5" />
+          <div className="flex-shrink-0 w-8 h-8 overflow-hidden rounded-full flex items-center justify-center">
+            <Image 
+              src="/user-avatar.svg" 
+              alt="User"
+              width={32} 
+              height={32}
+              className="rounded-full"
+            />
           </div>
         )}
       </div>

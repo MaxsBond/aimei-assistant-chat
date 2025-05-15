@@ -26,7 +26,7 @@ export function WelcomeSuggestions({ onClick }: WelcomeSuggestionProps) {
         <button
           key={index}
           onClick={() => onClick(suggestion.title)}
-          className="p-4 rounded-xl border bg-background hover:bg-muted/50 transition-colors text-left w-full"
+          className="p-4 rounded-md bg-background/60 shadow-sm hover:bg-muted/50 transition-colors text-left w-full"
         >
           <div className="leading-relaxed">{suggestion.title}</div>
         </button>

@@ -62,7 +62,7 @@ export function ChatInput({ onSendMessage, isLoading }: ChatInputProps) {
   };
 
   return (
-    <div className={`border rounded-lg p-2 flex items-end gap-2 bg-background transition-colors ${isLoading ? 'border-primary/50' : ''}`}>
+    <div className={`border rounded-md p-2 flex items-end gap-2 bg-background/60 shadow-sm transition-colors ${isLoading ? 'border-primary/50' : ''}`}>
       <textarea
         ref={textareaRef}
         value={message}

@@ -6,7 +6,6 @@ import { ChatContainer } from "./chat-container";
 import { ChatInput } from "./chat-input";
 import { SuggestionsContainer } from "./suggestions-container";
 import { sendMessage, getSuggestions, Message as ApiMessage } from "@/lib/api";
-import { BookOpen, BookX, Wrench, SlashIcon, MessageSquare, Settings } from "lucide-react";
 import { CustomPrompt, CustomPromptData } from "./custom-prompt";
 import { CustomPromptManager } from "./custom-prompt-manager";
 import { buildPromptFromCustomData } from "@/lib/promptUtils";
@@ -39,6 +38,7 @@ export function Chat() {
   } = useChatStore();
   
   const [showPromptManager, setShowPromptManager] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(true);
 
   const handleSendMessage = async (content: string) => {
     // Add user message to the store
@@ -63,7 +63,7 @@ export function Chat() {
         enableFunctions: functionSettings.enabled,
         useCustomPrompt: customPromptSettings.enabled,
         customPromptContent: customPromptSettings.enabled && getActivePrompt() 
-          ? buildPromptFromCustomData(getActivePrompt())
+          ? buildPromptFromCustomData(getActivePrompt()!)
           : undefined
       });
 
@@ -75,9 +75,9 @@ export function Chat() {
         {
           id: newMessageId, // Pass ID so we can reference it immediately
           citations: responseMessage.citations,
-          ragEnabled: responseMessage.citations?.length > 0,
-          confidence: responseMessage.citations?.length > 0 ? 
-            getConfidenceFromCitations(responseMessage.citations) : undefined,
+          ragEnabled: responseMessage.citations && responseMessage.citations.length > 0,
+          confidence: responseMessage.citations && responseMessage.citations.length > 0 ? 
+            getConfidenceFromCitations(responseMessage.citations || []) : undefined,
           needsCallback: responseMessage.callback?.needed,
           callbackReason: responseMessage.callback?.reason,
         }
@@ -155,94 +155,8 @@ export function Chat() {
   const activePrompt = getActivePrompt();
 
   return (
-    <div className="flex flex-col h-[calc(100vh-11rem)]">
-      <div className="flex justify-between mb-2">
-        <div className="flex gap-2">
-          <button
-            onClick={toggleRAG}
-            className={`flex items-center gap-1 text-sm px-2 py-1 rounded-md ${
-              ragSettings.enabled 
-                ? 'bg-primary/10 text-primary' 
-                : 'bg-muted text-muted-foreground'
-            }`}
-          >
-            {ragSettings.enabled ? (
-              <>
-                <BookOpen className="w-4 h-4" />
-                <span>Knowledge Base: ON</span>
-              </>
-            ) : (
-              <>
-                <BookX className="w-4 h-4" />
-                <span>Knowledge Base: OFF</span>
-              </>
-            )}
-          </button>
-          
-          <button
-            onClick={toggleFunctions}
-            className={`flex items-center gap-1 text-sm px-2 py-1 rounded-md ${
-              functionSettings.enabled 
-                ? 'bg-primary/10 text-primary' 
-                : 'bg-muted text-muted-foreground'
-            }`}
-          >
-            {functionSettings.enabled ? (
-              <>
-                <Wrench className="w-4 h-4" />
-                <span>Functions: ON</span>
-              </>
-            ) : (
-              <>
-                <div className="relative w-4 h-4">
-                  <Wrench className="w-4 h-4" />
-                  <SlashIcon className="w-4 h-4 absolute top-0 left-0 text-red-500" />
-                </div>
-                <span>Functions: OFF</span>
-              </>
-            )}
-          </button>
-          
-          <button
-            onClick={toggleCustomPrompt}
-            className={`flex items-center gap-1 text-sm px-2 py-1 rounded-md ${
-              customPromptSettings.enabled && activePrompt 
-                ? 'bg-primary/10 text-primary' 
-                : 'bg-muted text-muted-foreground'
-            }`}
-          >
-            {customPromptSettings.enabled && activePrompt ? (
-              <>
-                <MessageSquare className="w-4 h-4" />
-                <span>{`Custom: ${activePrompt.name}`}</span>
-              </>
-            ) : (
-              <>
-                <MessageSquare className="w-4 h-4" />
-                <span>Custom Prompt: OFF</span>
-              </>
-            )}
-          </button>
-          
-          <button
-            onClick={handleOpenPromptManager}
-            className="flex items-center gap-1 text-sm px-2 py-1 rounded-md bg-muted text-muted-foreground hover:bg-muted/80"
-            title="Manage Custom Prompts"
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-        </div>
-        
-        <button
-          onClick={handleClearChat}
-          disabled={messages.length === 0 || isLoading}
-          className="text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
-        >
-          Clear Chat
-        </button>
-      </div>
-
-      <div className="flex-1 flex flex-col overflow-hidden border rounded-lg bg-background/50">
+    <div className="flex flex-col h-[calc(100vh-5rem)]">
+      <div className="flex-1 flex flex-col overflow-hidden rounded-md bg-background/60 shadow-lg">
         {showCustomPromptForm && (
           <CustomPrompt 
             onClose={() => setShowCustomPromptForm(false)}
@@ -263,10 +177,12 @@ export function Chat() {
           onSendMessage={handleSendMessage}
         />
 
-        <div className="p-4 border-t">
+        <div className="p-4">
           <SuggestionsContainer
             suggestions={unusedSuggestions}
             onSelectSuggestion={handleSelectSuggestion}
+            showSuggestions={showSuggestions}
+            setShowSuggestions={setShowSuggestions}
           />
           
           <ChatInput onSendMessage={handleSendMessage} isLoading={isLoading} />
