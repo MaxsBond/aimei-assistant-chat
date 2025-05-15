@@ -158,7 +158,7 @@ export function Chat() {
   const activePrompt = getActivePrompt();
 
   return (
-    <div className="flex flex-col h-[calc(100vh-5rem)]">
+    <div className="flex flex-col min-h-[calc(100vh-5rem)] max-h-[calc(100vh-5rem)]">
       <div className="flex-1 flex flex-col overflow-hidden rounded-md bg-background/60 shadow-lg">
         {showCustomPromptForm && (
           <CustomPrompt 
