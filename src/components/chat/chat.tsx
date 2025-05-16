@@ -47,19 +47,44 @@ export function Chat() {
       // Add the new user message in API format
       apiMessages.push({ role: "user", content });
 
-      // Send message to API and get response with RAG and function calling options
+      // Create an ID for the new message upfront
+      const newMessageId = crypto.randomUUID();
+      
+      // Add an empty placeholder message that will be updated as chunks arrive
+      addMessage("", "assistant", { id: newMessageId });
+      
+      // Send message to API with streaming support
       const responseMessage = await sendMessage(apiMessages, {
         enableRAG: ragSettings.enabled,
         enableFunctions: functionSettings.enabled,
+        // Handle streaming chunks
+        onChunk: (chunk) => {
+          // Incrementally update the message content as chunks arrive
+          const currentMessages = useChatStore.getState().messages;
+          const lastMessage = currentMessages[currentMessages.length - 1];
+          
+          console.log(`🔄 CLIENT-CHUNK: Received chunk of ${chunk.length} characters`);
+          
+          if (lastMessage && lastMessage.id === newMessageId) {
+            console.log(`🔄 CLIENT-CHUNK: Updating message ${newMessageId.slice(0, 8)}...`);
+            
+            // Update the message with the accumulated content
+            useChatStore.getState().updateMessage(
+              newMessageId,
+              lastMessage.content + chunk
+            );
+          } else {
+            console.error(`🔄 CLIENT-CHUNK: Failed to find message with ID ${newMessageId.slice(0, 8)}`);
+            console.log('Current messages:', currentMessages.map(m => ({id: m.id.slice(0, 8), role: m.role})));
+          }
+        }
       });
 
-      // Add assistant's response to the store with citations and confidence if available
-      const newMessageId = crypto.randomUUID();
-      addMessage(
+      // Update the assistant's message with complete information once streaming is finished
+      useChatStore.getState().updateMessage(
+        newMessageId,
         responseMessage.content,
-        "assistant",
         {
-          id: newMessageId, // Pass ID so we can reference it immediately
           citations: responseMessage.citations,
           ragEnabled: responseMessage.citations && responseMessage.citations.length > 0,
           confidence: responseMessage.citations && responseMessage.citations.length > 0 ? 

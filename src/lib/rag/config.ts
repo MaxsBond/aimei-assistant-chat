@@ -14,17 +14,17 @@ export const ragConfig = {
     // Temperature for retrieval operations (lower for more factual responses)
     temperature: 0.2,
     // Maximum tokens for completion
-    maxTokens: 1000,
+    maxTokens: 500,
   },
   
   // Configuration for the retrieval functionality
   retrieval: {
     // Maximum number of documents to retrieve
-    maxResults: 3,
+    maxResults: 2,
     // Minimum relevance score (0-1) for retrieved documents to be used
     minRelevanceScore: 0.75,
     // Whether to include citations in the response
-    includeCitations: true,
+    includeCitations: false,
     // Maximum tokens to include from each retrieved document
     maxTokensPerDocument: 200,
   },
@@ -32,9 +32,9 @@ export const ragConfig = {
   // Context management
   context: {
     // Maximum tokens to include in the context window
-    maxContextTokens: 4000,
+    maxContextTokens: 1000,
     // Strategy for managing context overflow: 'truncate' | 'summarize' | 'filter'
-    overflowStrategy: 'filter',
+    overflowStrategy: 'summarize',
   },
 
   // User feedback configuration
