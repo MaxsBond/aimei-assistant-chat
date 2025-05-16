@@ -1,7 +1,7 @@
 /**
  * Knowledge search function definition and implementation for OpenAI to call
  */
-import { searchKnowledge } from './vector-store';
+import { searchKnowledge, searchKnowledgeWithFileSearch } from './vector-store';
 import { KnowledgeSearchFunction, SearchParams, Tool } from './types';
 import { ragConfig } from './config';
 
@@ -99,8 +99,8 @@ export async function handleKnowledgeSearchCall(argsString: string): Promise<str
     // Log the search parameters
     console.log('Searching knowledge with params:', JSON.stringify(args));
     
-    // Perform the search
-    const results = await searchKnowledge(args);
+    // Perform the search using the new file search method
+    const results = await searchKnowledgeWithFileSearch(args);
     
     // Return formatted results
     return JSON.stringify({

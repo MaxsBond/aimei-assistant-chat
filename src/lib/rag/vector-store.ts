@@ -4,6 +4,7 @@
 import { createPineconeHeaders, getPineconeCredentials } from './auth';
 import { RetrievedDocument, SearchParams, SearchResults } from './types';
 import { ragConfig } from './config';
+import OpenAI from 'openai';
 
 /**
  * Get the Pinecone host for the specified index
@@ -181,6 +182,138 @@ export async function searchKnowledge(params: SearchParams): Promise<SearchResul
         },
       };
     });
+    
+    console.log(`Found ${documents.length} relevant documents for query: "${query}"`);
+    
+    return {
+      query,
+      totalResults: documents.length,
+      documents,
+    };
+  } catch (error) {
+    console.error('Search knowledge error:', error);
+    // Return empty results on error
+    return {
+      query,
+      totalResults: 0,
+      documents: [],
+      error: String(error),
+    };
+  }
+}
+
+/**
+ * Search knowledge base using OpenAI's Responses API with file_search tool
+ * This approach simplifies RAG by leveraging OpenAI's built-in vector search capabilities
+ * @param params - Search parameters
+ * @returns Search results with matching documents
+ */
+export async function searchKnowledgeWithFileSearch(params: SearchParams): Promise<SearchResults> {
+  const { query, limit = 3, filters } = params;
+  
+  console.log('Searching knowledge with params:', JSON.stringify(params));
+  console.log('Searching knowledge with query:', query);
+  
+  try {
+    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    if (!OPENAI_API_KEY) {
+      throw new Error('OpenAI API key is not configured');
+    }
+    
+    // Initialize the OpenAI client
+    const openai = new OpenAI({
+      apiKey: OPENAI_API_KEY,
+    });
+    
+    // Use the OpenAI Responses API with file_search tool
+    const response = await openai.responses.create({
+      model: ragConfig.openai.model,
+      tools: [{
+        type: "file_search",
+        vector_store_ids: [ragConfig.openai.vectorStoreId], // Use the vector store ID from config
+        max_num_results: limit
+      }],
+      input: query,
+    });
+    
+    // Extract the documents from the response
+    const documents: RetrievedDocument[] = [];
+    
+    // Using 'any' type temporarily to handle OpenAI response structure
+    // In a production environment, should use proper typings from OpenAI client
+    const responseAny = response as any;
+    
+    // For debugging
+    console.log('Response structure:', JSON.stringify({
+      has_output: !!responseAny.output,
+      output_length: responseAny.output?.length || 0,
+      output_types: responseAny.output?.map((o: any) => o.type) || []
+    }));
+    
+    // Process the found citations
+    if (responseAny.output && responseAny.output.length > 0) {
+      // Loop through outputs to find message and file_search_call
+      for (const output of responseAny.output) {
+        // Extract citations from message content
+        if (output.type === 'message' && output.content && Array.isArray(output.content)) {
+          console.log(`Found message with ${output.content.length} content items`);
+          
+          for (const contentItem of output.content) {
+            // Extract file_citation annotations
+            if (contentItem && contentItem.annotations && Array.isArray(contentItem.annotations)) {
+              console.log(`Found ${contentItem.annotations.length} annotations`);
+              
+              contentItem.annotations.forEach((annotation: any, index: number) => {
+                if (annotation.type === 'file_citation') {
+                  const docId = annotation.file_citation.file_id || '';
+                  const source = annotation.file_citation.quote || '';
+                  const filename = annotation.file_citation.filename || 'unknown';
+                  
+                  if (docId) {
+                    documents.push({
+                      id: docId,
+                      content: source,
+                      score: 1.0 - (index * 0.05), // Simple scoring based on position
+                      metadata: {
+                        source: filename,
+                        title: filename,
+                        url: '',
+                      }
+                    });
+                    console.log(`Added citation: ${filename}`);
+                  }
+                }
+              });
+            }
+          }
+        }
+        
+        // Check for file_search_call results
+        if (output.type === 'file_search_call' && output.results && Array.isArray(output.results)) {
+          console.log(`Found file_search_call with ${output.results.length} results`);
+          
+          output.results.forEach((result: any, index: number) => {
+            const docId = result.file_id || '';
+            const content = result.text || result.content || '';
+            const source = result.filename || 'unknown';
+            
+            if (docId && content) {
+              documents.push({
+                id: docId,
+                content: content,
+                score: 1.0 - (index * 0.05),
+                metadata: {
+                  source,
+                  title: source,
+                  url: '',
+                }
+              });
+              console.log(`Added search result: ${source}`);
+            }
+          });
+        }
+      }
+    }
     
     console.log(`Found ${documents.length} relevant documents for query: "${query}"`);
     

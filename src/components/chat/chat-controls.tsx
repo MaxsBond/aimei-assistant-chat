@@ -7,7 +7,9 @@ import {
   SlashIcon, 
   Trash2,
   ChevronDown,
-  ChevronUp 
+  ChevronUp,
+  Zap,
+  ZapOff
 } from "lucide-react";
 import { useChatStore } from "@/lib/store";
 import { ThemeToggle } from "../theme/theme-toggle";
@@ -22,6 +24,7 @@ export function ChatControls() {
     clearSuggestions,
     ragSettings,
     toggleRAG,
+    updateRAGSettings,
     functionSettings,
     toggleFunctions,
   } = useChatStore();
@@ -35,6 +38,10 @@ export function ChatControls() {
   
   const toggleExpand = () => {
     setIsExpanded(!isExpanded);
+  };
+  
+  const toggleDirectRAG = () => {
+    updateRAGSettings({ useDirectRAG: !ragSettings.useDirectRAG });
   };
 
   return (
@@ -90,6 +97,30 @@ export function ChatControls() {
                 </>
               )}
             </button>
+            
+            {ragSettings.enabled && (
+              <button
+                onClick={toggleDirectRAG}
+                className={`flex items-center gap-1 text-sm px-2 py-1 rounded-md ${
+                  ragSettings.useDirectRAG
+                    ? 'bg-primary/10 text-primary'
+                    : 'bg-muted text-muted-foreground'
+                }`}
+                title="Toggle between direct OpenAI Responses API (faster) and traditional function calling approach"
+              >
+                {ragSettings.useDirectRAG ? (
+                  <>
+                    <Zap className="w-4 h-4" />
+                    <span>Direct RAG: ON</span>
+                  </>
+                ) : (
+                  <>
+                    <ZapOff className="w-4 h-4" />
+                    <span>Direct RAG: OFF</span>
+                  </>
+                )}
+              </button>
+            )}
             
             <button
               onClick={toggleFunctions}

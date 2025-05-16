@@ -18,6 +18,7 @@ import { createOpenAIHeaders } from '@/lib/rag/auth';
 import { ragConfig } from '@/lib/rag/config';
 import { manageContextWindow } from '@/lib/rag/context-manager';
 import { useChatStore } from '@/lib/store';
+import OpenAI from 'openai';
 
 // Rate limiting variables
 const API_RATE_LIMIT = 10; // requests per minute
@@ -57,6 +58,7 @@ export async function POST(request: NextRequest) {
     const enableRAG: boolean = body.enableRAG ?? true; // Enable RAG by default
     const enableFunctions: boolean = body.enableFunctions ?? true; // Enable function calling by default
     const customPromptContent: string | undefined = body.customPromptContent; // Get custom prompt content
+    const useDirectRAG: boolean = body.useDirectRAG ?? false; // Whether to use the direct OpenAI Responses API for RAG
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
@@ -84,10 +86,162 @@ export async function POST(request: NextRequest) {
 
     // Add system message if not already present
     const systemMessageExists = messages.some(msg => msg.role === 'system');
-    const messagesWithSystem = customPromptContent 
-      ? [{ role: 'system' as MessageRole, content: customPromptContent }, ...messages]
+    const messagesWithSystem = systemMessageExists 
+      ? messages 
       : [{ role: 'system' as MessageRole, content: systemPrompt }, ...messages];
 
+    // If using direct RAG with Responses API, handle it differently
+    if (enableRAG && useDirectRAG) {
+      try {
+        // Initialize the OpenAI client
+        const openai = new OpenAI({
+          apiKey: apiKey,
+        });
+        
+        // Get the latest user message
+        const userMessage = messages[messages.length - 1];
+        if (!userMessage || userMessage.role !== 'user') {
+          throw new Error('Last message must be from user');
+        }
+        
+        // Use the OpenAI Responses API with file_search tool for direct RAG
+        const response = await openai.responses.create({
+          model: ragConfig.openai.model,
+          tools: [{
+            type: "file_search",
+            vector_store_ids: [ragConfig.openai.vectorStoreId],
+            max_num_results: ragConfig.retrieval.maxResults
+          }],
+          input: userMessage.content
+        });
+        
+        // Extract the final content from the response
+        let finalContent = '';
+        let citations: any[] = [];
+        
+        try {
+          // First, check if there's an output_text property directly on the response
+          if ((response as any).output_text) {
+            finalContent = (response as any).output_text;
+          } 
+          // Otherwise, parse the nested structure
+          else if (response.output && response.output.length > 0) {
+            console.log('Processing output with length:', response.output.length);
+            
+            // Loop through all output items
+            for (const output of response.output) {
+              // Cast to any to avoid TypeScript errors since we're dealing with dynamic response structure
+              const outputAny = output as any;
+              
+              // Skip non-message outputs (like file_search_call)
+              if (outputAny.type === 'message' && outputAny.content && Array.isArray(outputAny.content)) {
+                console.log(`Found message with ${outputAny.content.length} content items`);
+                
+                // Process each content item in the message
+                for (const contentItem of outputAny.content) {
+                  // Check for text property in content items
+                  if (contentItem && contentItem.text) {
+                    finalContent += contentItem.text;
+                    
+                    // Also collect file citations from annotations if they exist
+                    if (contentItem.annotations && Array.isArray(contentItem.annotations)) {
+                      console.log(`Found ${contentItem.annotations.length} annotations`);
+                      
+                      contentItem.annotations.forEach((annotation: any) => {
+                        if (annotation.type === 'file_citation' && annotation.file_citation) {
+                          console.log('Found file citation:', JSON.stringify(annotation.file_citation));
+                          citations.push({
+                            file_id: annotation.file_citation.file_id,
+                            filename: annotation.file_citation.filename,
+                            quote: annotation.file_citation.quote
+                          });
+                        }
+                      });
+                    }
+                  }
+                }
+              }
+              
+              // Also check for file_search_call outputs for citations
+              if (outputAny.type === 'file_search_call' && outputAny.results && Array.isArray(outputAny.results)) {
+                console.log(`Found file_search_call with ${outputAny.results.length} results`);
+                
+                outputAny.results.forEach((result: any) => {
+                  if (result.file_id) {
+                    citations.push({
+                      file_id: result.file_id,
+                      filename: result.filename || 'Unknown document',
+                      quote: result.text || ''
+                    });
+                  }
+                });
+              }
+            }
+          }
+          
+          // Add fallback if no content was found
+          if (!finalContent.trim()) {
+            console.log('No content extracted from response:', JSON.stringify(response, null, 2));
+            finalContent = "I couldn't find specific information about that. Can you please try rephrasing your question?";
+          }
+          
+          console.log(`Extracted ${citations.length} citations from the response`);
+          
+          // Create response with citations
+          const messageWithCitations: MessageWithCitations = {
+            role: 'assistant',
+            content: finalContent,
+          };
+          
+          // If we have citations, add them to the message
+          if (citations.length > 0) {
+            messageWithCitations.citations = citations.map(citation => {
+              const citationAny = citation as any;
+              return {
+                text: citationAny.quote || 'From document',
+                documentId: citationAny.file_id || 'unknown',
+                metadata: {
+                  source: citationAny.filename || 'Unknown',
+                  title: citationAny.filename || 'Unknown Document',
+                }
+              };
+            });
+          }
+          
+          // Simple confidence assessment based on presence of references
+          const hasReferences = finalContent.includes('sources') || finalContent.includes('reference');
+          const confidence = { 
+            score: hasReferences ? 0.9 : 0.7, 
+            reasoning: hasReferences ? 'Response includes references to sources' : 'Response generated directly'
+          };
+          
+          // Add confidence to the message
+          messageWithCitations.confidence = confidence.score;
+          
+          return NextResponse.json({
+            message: messageWithCitations,
+            rag: {
+              used: true,
+              confidence: confidence.score,
+              directMode: true
+            },
+            callback: {
+              needed: false,
+              reason: "Direct RAG approach used"
+            }
+          });
+        } catch (err) {
+          console.error('Error processing Responses API result:', err);
+          throw err;
+        }
+      } catch (error) {
+        console.error('Error in direct RAG approach:', error);
+        // Fall back to the traditional function-calling approach if direct RAG fails
+        console.log('Falling back to function-calling RAG approach...');
+      }
+    }
+
+    // Continue with traditional function-calling approach
     // Prepare the request payload for OpenAI
     const tools = [];
     
@@ -263,8 +417,19 @@ export async function POST(request: NextRequest) {
         content: finalContent,
       };
       
+      // If we have citations, add them to the message
       if (citations.length > 0) {
-        messageWithCitations.citations = citations;
+        messageWithCitations.citations = citations.map(citation => {
+          const citationAny = citation as any;
+          return {
+            text: 'From document',
+            documentId: citationAny.file_id || 'unknown',
+            metadata: {
+              source: citationAny.filename || 'Unknown',
+              title: citationAny.filename || 'Unknown Document',
+            }
+          };
+        });
       }
       
       // Assess confidence in the retrieved information

@@ -52,6 +52,7 @@ export interface RAGSettings {
   enabled: boolean;     // Whether RAG is enabled
   includeCitations: boolean; // Whether to show citations
   showConfidence: boolean;   // Whether to show confidence scores
+  useDirectRAG: boolean;     // Whether to use the direct OpenAI Responses API for RAG
 }
 
 /**
@@ -130,6 +131,7 @@ export const useChatStore = create<ChatStore>()(
         enabled: true,
         includeCitations: true,
         showConfidence: false,
+        useDirectRAG: false,    // Default to traditional approach
       },
       functionSettings: {
         enabled: true,
