@@ -5,11 +5,20 @@ import { createPineconeHeaders, getPineconeCredentials } from './auth';
 import { RetrievedDocument, SearchParams, SearchResults } from './types';
 import { ragConfig } from './config';
 
+// Performance tracking helper
+function trackPerformance(label: string, startTime: number): number {
+  const endTime = performance.now();
+  const duration = endTime - startTime;
+  console.log(`⏱️ VECTOR-STORE: ${label} took ${duration.toFixed(2)}ms`);
+  return endTime;
+}
+
 /**
  * Get the Pinecone host for the specified index
  * @returns Promise with the host URL
  */
 async function getPineconeHost(): Promise<string> {
+  const hostStartTime = performance.now();
   const { apiKey, indexName } = getPineconeCredentials();
   
   try {
@@ -32,6 +41,7 @@ async function getPineconeHost(): Promise<string> {
       throw new Error(`Index "${indexName}" not found or missing host information`);
     }
     
+    trackPerformance('Get Pinecone host', hostStartTime);
     return indexInfo.host;
   } catch (error) {
     console.error('Error getting Pinecone host:', error);
@@ -55,13 +65,18 @@ export async function queryPinecone(
     namespace?: string;
   } = {}
 ): Promise<any> {
+  const queryStartTime = performance.now();
   const { topK = ragConfig.retrieval.maxResults, filter, includeMetadata = true, includeValues = false, namespace } = options;
   
   try {
+    const hostTime = performance.now();
     const host = await getPineconeHost();
+    trackPerformance('Get host in queryPinecone', hostTime);
+    
     const queryUrl = `https://${host}/query`;
     const headers = createPineconeHeaders();
     
+    const fetchTime = performance.now();
     const response = await fetch(queryUrl, {
       method: 'POST',
       headers,
@@ -74,13 +89,19 @@ export async function queryPinecone(
         namespace,
       }),
     });
+    trackPerformance('Pinecone API request', fetchTime);
     
     if (!response.ok) {
       const error = await response.json();
       throw new Error(`Pinecone query error: ${error.message || response.statusText}`);
     }
     
-    return await response.json();
+    const parseTime = performance.now();
+    const results = await response.json();
+    trackPerformance('Parse Pinecone response', parseTime);
+    
+    trackPerformance('Total queryPinecone', queryStartTime);
+    return results;
   } catch (error) {
     console.error('Vector store query error:', error);
     throw error;
@@ -93,6 +114,7 @@ export async function queryPinecone(
  * @returns Promise with the embedding vector
  */
 export async function generateEmbeddings(text: string): Promise<number[]> {
+  const embedStartTime = performance.now();
   try {
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
     if (!OPENAI_API_KEY) {
@@ -101,6 +123,7 @@ export async function generateEmbeddings(text: string): Promise<number[]> {
 
     console.log('Generating embeddings for text:', text.substring(0, 50) + '...');
 
+    const fetchTime = performance.now();
     const response = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
       headers: {
@@ -112,13 +135,18 @@ export async function generateEmbeddings(text: string): Promise<number[]> {
         input: text,
       }),
     });
+    trackPerformance('OpenAI embeddings API request', fetchTime);
 
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(`OpenAI API error: ${JSON.stringify(errorData)}`);
     }
 
+    const parseTime = performance.now();
     const data = await response.json();
+    trackPerformance('Parse embeddings response', parseTime);
+    
+    trackPerformance('Total embeddings generation', embedStartTime);
     return data.data[0].embedding;
   } catch (error) {
     console.error('Error generating embeddings:', error);
@@ -132,19 +160,27 @@ export async function generateEmbeddings(text: string): Promise<number[]> {
  * @returns Search results with matching documents
  */
 export async function searchKnowledge(params: SearchParams): Promise<SearchResults> {
+  const searchStartTime = performance.now();
+  let currentTime = searchStartTime;
+  
   const { query, limit = 3, filters, includeSources = true } = params;
   
   console.log('Searching knowledge with query:', query);
   
   try {
     // Generate embeddings for the query
+    const embedTime = performance.now();
     const embedding = await generateEmbeddings(query);
+    currentTime = trackPerformance('Generate embeddings', embedTime);
     
     // Get the Pinecone index host
+    const hostTime = performance.now();
     const host = await getPineconeHost();
     const { apiKey } = getPineconeCredentials();
+    currentTime = trackPerformance('Get Pinecone host', hostTime);
     
     // Query the vector store
+    const queryTime = performance.now();
     const response = await fetch(`https://${host}/query`, {
       method: 'POST',
       headers: {
@@ -157,15 +193,19 @@ export async function searchKnowledge(params: SearchParams): Promise<SearchResul
         includeMetadata: true,
       }),
     });
+    currentTime = trackPerformance('Pinecone query request', queryTime);
     
     if (!response.ok) {
       throw new Error(`Vector store query failed with status ${response.status}: ${await response.text()}`);
     }
     
+    const parseTime = performance.now();
     const data = await response.json();
     const matches = data.matches || [];
+    currentTime = trackPerformance('Parse Pinecone query response', parseTime);
     
     // Validate and process matches
+    const processTime = performance.now();
     const documents = matches.map((match: any) => {
       const metadata = match.metadata || {};
       
@@ -181,22 +221,22 @@ export async function searchKnowledge(params: SearchParams): Promise<SearchResul
         },
       };
     });
+    currentTime = trackPerformance('Process matches', processTime);
     
     console.log(`Found ${documents.length} relevant documents for query: "${query}"`);
     
+    trackPerformance('Total searchKnowledge', searchStartTime);
     return {
-      query,
-      totalResults: documents.length,
       documents,
+      totalResults: documents.length,
     };
   } catch (error) {
     console.error('Search knowledge error:', error);
+    trackPerformance('Total searchKnowledge (error)', searchStartTime);
     // Return empty results on error
     return {
-      query,
-      totalResults: 0,
       documents: [],
-      error: String(error),
+      totalResults: 0,
     };
   }
 }

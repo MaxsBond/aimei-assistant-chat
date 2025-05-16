@@ -5,6 +5,14 @@ import { searchKnowledge } from './vector-store';
 import { KnowledgeSearchFunction, SearchParams, Tool } from './types';
 import { ragConfig } from './config';
 
+// Performance tracking helper
+function trackPerformance(label: string, startTime: number): number {
+  const endTime = performance.now();
+  const duration = endTime - startTime;
+  console.log(`⏱️ RAG-SEARCH: ${label} took ${duration.toFixed(2)}ms`);
+  return endTime;
+}
+
 /**
  * Function schema definition for OpenAI
  */
@@ -86,9 +94,15 @@ export function parseSearchArguments(argsString: string): SearchParams | null {
  * @returns JSON string of search results
  */
 export async function handleKnowledgeSearchCall(argsString: string): Promise<string> {
+  const totalStartTime = performance.now();
+  let currentTime = totalStartTime;
+  
+  const parseStartTime = performance.now();
   const args = parseSearchArguments(argsString);
+  currentTime = trackPerformance('Parse arguments', parseStartTime);
   
   if (!args) {
+    trackPerformance('Total (failed parse)', totalStartTime);
     return JSON.stringify({
       error: 'Failed to parse search arguments',
       documents: [],
@@ -98,12 +112,16 @@ export async function handleKnowledgeSearchCall(argsString: string): Promise<str
   try {
     // Log the search parameters
     console.log('Searching knowledge with params:', JSON.stringify(args));
+    console.log('Searching knowledge with query:', args.query);
     
     // Perform the search
+    const searchStartTime = performance.now();
     const results = await searchKnowledge(args);
+    currentTime = trackPerformance('Vector search', searchStartTime);
     
-    // Return formatted results
-    return JSON.stringify({
+    // Format the results
+    const formatStartTime = performance.now();
+    const formattedResults = JSON.stringify({
       query: args.query,
       totalResults: results.totalResults,
       documents: results.documents.map(doc => ({
@@ -114,7 +132,13 @@ export async function handleKnowledgeSearchCall(argsString: string): Promise<str
         relevanceScore: doc.score,
       })),
     });
+    currentTime = trackPerformance('Format results', formatStartTime);
+    
+    trackPerformance('Total search time', totalStartTime);
+    // Return formatted results
+    return formattedResults;
   } catch (error) {
+    trackPerformance('Total (error)', totalStartTime);
     console.error('Error handling knowledge search call:', error);
     return JSON.stringify({
       error: 'Failed to search knowledge base',

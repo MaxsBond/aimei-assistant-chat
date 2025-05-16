@@ -8,17 +8,29 @@ import { handleCallbackSuggestion } from '../functions/callback-function';
 import { handleCalendlySuggestion } from '../functions/calendly-function';
 import { detectLowQualityAnswer, getAnswerQualityAssessment } from './answer-quality';
 
+// Performance tracking helper
+function trackPerformance(label: string, startTime: number): number {
+  const endTime = performance.now();
+  const duration = endTime - startTime;
+  console.log(`⏱️ RESPONSE-PROC: ${label} took ${duration.toFixed(2)}ms`);
+  return endTime;
+}
+
 /**
  * Parse function calls from OpenAI response
  * @param response - The raw response from OpenAI API
  * @returns Array of tool calls or empty array if none
  */
 export function parseToolCalls(response: ToolCallResponse): ToolCall[] {
+  const parseStart = performance.now();
   try {
     const toolCalls = response.choices[0]?.message?.tool_calls;
-    return toolCalls || [];
+    const result = toolCalls || [];
+    trackPerformance('Parse tool calls', parseStart);
+    return result;
   } catch (error) {
     console.error('Error parsing tool calls:', error);
+    trackPerformance('Parse tool calls (error)', parseStart);
     return [];
   }
 }
@@ -29,25 +41,41 @@ export function parseToolCalls(response: ToolCallResponse): ToolCall[] {
  * @returns Promise with the tool result
  */
 export async function handleToolCall(toolCall: ToolCall): Promise<ToolResult> {
+  const handlerStart = performance.now();
   try {
     const { id, function: functionCall } = toolCall;
     const { name, arguments: args } = functionCall;
     
     let content = '';
+    let operationName = '';
     
     // Match the function name to the appropriate handler
     if (name === 'searchKnowledge') {
+      operationName = 'Knowledge search';
+      const searchStart = performance.now();
       content = await handleKnowledgeSearchCall(args);
+      trackPerformance(operationName, searchStart);
     } else if (name === 'getWeather') {
+      operationName = 'Weather lookup';
+      const weatherStart = performance.now();
       content = await handleWeatherCall(args);
+      trackPerformance(operationName, weatherStart);
     } else if (name === 'suggestCallback') {
+      operationName = 'Callback suggestion';
+      const callbackStart = performance.now();
       content = await handleCallbackSuggestion(args);
+      trackPerformance(operationName, callbackStart);
     } else if (name === 'suggestCalendlyBooking') {
+      operationName = 'Calendly suggestion';
+      const calendlyStart = performance.now();
       content = await handleCalendlySuggestion(args);
+      trackPerformance(operationName, calendlyStart);
     } else {
+      operationName = `Unknown function: ${name}`;
       content = JSON.stringify({ error: `Unknown function: ${name}` });
     }
     
+    trackPerformance(`Total tool call: ${operationName}`, handlerStart);
     return {
       tool_call_id: id,
       role: 'tool',
@@ -56,6 +84,7 @@ export async function handleToolCall(toolCall: ToolCall): Promise<ToolResult> {
     };
   } catch (error) {
     console.error('Error handling tool call:', error);
+    trackPerformance('Tool call handling (error)', handlerStart);
     return {
       tool_call_id: toolCall.id,
       role: 'tool',
@@ -71,8 +100,10 @@ export async function handleToolCall(toolCall: ToolCall): Promise<ToolResult> {
  * @returns Promise with array of tool results
  */
 export async function handleAllToolCalls(response: ToolCallResponse): Promise<ToolResult[]> {
+  const allToolsStart = performance.now();
   const toolCalls = parseToolCalls(response);
   const toolResults = await Promise.all(toolCalls.map(handleToolCall));
+  trackPerformance(`All tool calls (${toolCalls.length})`, allToolsStart);
   return toolResults;
 }
 
@@ -83,11 +114,13 @@ export async function handleAllToolCalls(response: ToolCallResponse): Promise<To
  * @returns Array of citations
  */
 export function extractCitations(content: string, rawSearchResults: string): Citation[] {
+  const citationsStart = performance.now();
   try {
     const searchResults = JSON.parse(rawSearchResults);
     const documents = searchResults.documents || [];
     
     if (documents.length === 0) {
+      trackPerformance('Citations extraction (empty)', citationsStart);
       return [];
     }
     
@@ -114,9 +147,11 @@ export function extractCitations(content: string, rawSearchResults: string): Cit
       });
     });
     
+    trackPerformance(`Citations extraction (found ${citations.length})`, citationsStart);
     return citations;
   } catch (error) {
     console.error('Error extracting citations:', error);
+    trackPerformance('Citations extraction (error)', citationsStart);
     return [];
   }
 }
@@ -127,11 +162,13 @@ export function extractCitations(content: string, rawSearchResults: string): Cit
  * @returns Confidence assessment
  */
 export function assessConfidence(searchResults: string): ConfidenceAssessment {
+  const confidenceStart = performance.now();
   try {
     const results = JSON.parse(searchResults);
     const documents = results.documents || [];
     
     if (documents.length === 0) {
+      trackPerformance('Confidence assessment (no docs)', confidenceStart);
       return { score: 0, reasoning: 'No documents were retrieved' };
     }
     
@@ -156,12 +193,14 @@ export function assessConfidence(searchResults: string): ConfidenceAssessment {
       reasoning = `Low confidence as retrieved information has low relevance scores`;
     }
     
+    trackPerformance(`Confidence assessment (score: ${confidenceScore.toFixed(2)})`, confidenceStart);
     return {
       score: confidenceScore,
       reasoning,
     };
   } catch (error) {
     console.error('Error assessing confidence:', error);
+    trackPerformance('Confidence assessment (error)', confidenceStart);
     return { score: 0, reasoning: 'Failed to assess confidence due to error' };
   }
 }
@@ -178,7 +217,10 @@ export function checkIfNeedsCallback(
   responseContent: string,
   citationsCount: number = 0
 ): { needsCallback: boolean; reason: string } {
-  return detectLowQualityAnswer(confidence, citationsCount, responseContent);
+  const callbackCheckStart = performance.now();
+  const result = detectLowQualityAnswer(confidence, citationsCount, responseContent);
+  trackPerformance(`Callback check (needed: ${result.needsCallback})`, callbackCheckStart);
+  return result;
 }
 
 /**

@@ -23,6 +23,14 @@ import { useChatStore } from '@/lib/store';
 const API_RATE_LIMIT = 10; // requests per minute
 const requestCounts = new Map<string, { count: number; resetTime: number }>();
 
+// Performance tracking helper
+function trackPerformance(label: string, startTime: number): number {
+  const endTime = performance.now();
+  const duration = endTime - startTime;
+  console.log(`⏱️ PERF: ${label} took ${duration.toFixed(2)}ms`);
+  return endTime;
+}
+
 // Function to check rate limiting
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
@@ -42,6 +50,9 @@ function isRateLimited(ip: string): boolean {
 }
 
 export async function POST(request: NextRequest) {
+  const totalStartTime = performance.now();
+  let currentTime = totalStartTime;
+  
   try {
     // IP-based rate limiting
     const ip = request.headers.get('x-forwarded-for') || 'unknown';
@@ -52,7 +63,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const requestStartTime = performance.now();
     const body = await request.json();
+    currentTime = trackPerformance('Request parsing', requestStartTime);
+    
     const messages: Message[] = body.messages;
     const enableRAG: boolean = body.enableRAG ?? true; // Enable RAG by default
     const enableFunctions: boolean = body.enableFunctions ?? true; // Enable function calling by default
@@ -89,6 +103,7 @@ export async function POST(request: NextRequest) {
       : [{ role: 'system' as MessageRole, content: systemPrompt }, ...messages];
 
     // Prepare the request payload for OpenAI
+    const prepareStartTime = performance.now();
     const tools = [];
     
     // Add RAG tool if enabled
@@ -114,13 +129,17 @@ export async function POST(request: NextRequest) {
     if (tools.length > 0) {
       payload.tools = tools;
     }
+    currentTime = trackPerformance('Request preparation', prepareStartTime);
 
     // Make the request to OpenAI API
+    console.log(`⏱️ PERF: Starting first OpenAI API call...`);
+    const openaiStartTime = performance.now();
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: createOpenAIHeaders(),
       body: JSON.stringify(payload),
     });
+    currentTime = trackPerformance('First OpenAI API call', openaiStartTime);
 
     if (!response.ok) {
       const error = await response.json();
@@ -131,7 +150,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const parseStartTime = performance.now();
     const data = await response.json() as ToolCallResponse;
+    currentTime = trackPerformance('First response parsing', parseStartTime);
     
     // Check if the response contains tool calls that need to be processed
     const toolCalls = parseToolCalls(data);
@@ -140,7 +161,9 @@ export async function POST(request: NextRequest) {
       console.log(`Processing ${toolCalls.length} tool calls from OpenAI...`);
       
       // Process all tool calls
+      const toolCallsStartTime = performance.now();
       const toolResults = await handleAllToolCalls(data);
+      currentTime = trackPerformance('Tool calls execution', toolCallsStartTime);
       
       // Check if any of the tool calls was a callback suggestion
       const callbackToolResult = toolResults.find(result => result.name === 'suggestCallback');
@@ -151,6 +174,7 @@ export async function POST(request: NextRequest) {
         try {
           const callbackData = JSON.parse(callbackToolResult.content);
           
+          trackPerformance('Total callback response time', totalStartTime);
           // Return the response with callback needed
           return NextResponse.json({
             message: {
@@ -174,6 +198,7 @@ export async function POST(request: NextRequest) {
         try {
           const calendlyData = JSON.parse(calendlyToolResult.content);
           
+          trackPerformance('Total calendly response time', totalStartTime);
           // Return the response with Calendly booking option
           return NextResponse.json({
             message: {
@@ -194,6 +219,7 @@ export async function POST(request: NextRequest) {
       }
       
       // For the first tool (assuming it's a knowledge search), parse the results
+      const parseSearchStartTime = performance.now();
       let retrievedDocuments = [];
       try {
         // Only attempt to parse if we have results
@@ -204,8 +230,10 @@ export async function POST(request: NextRequest) {
       } catch (error) {
         console.error('Error parsing search results:', error);
       }
+      currentTime = trackPerformance('Search results parsing', parseSearchStartTime);
       
       // Manage context window with retrieved documents
+      const contextWindowStartTime = performance.now();
       const { optimizedMessages, retrievalContext } = manageContextWindow(
         messagesWithSystem, 
         retrievedDocuments
@@ -221,6 +249,7 @@ export async function POST(request: NextRequest) {
         }
         return msg;
       });
+      currentTime = trackPerformance('Context window management', contextWindowStartTime);
       
       // Send a second request with the results from the tool calls
       const secondPayload = {
@@ -234,11 +263,14 @@ export async function POST(request: NextRequest) {
         max_tokens: ragConfig.openai.maxTokens,
       };
       
+      console.log(`⏱️ PERF: Starting second OpenAI API call...`);
+      const secondApiStartTime = performance.now();
       const secondResponse = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: createOpenAIHeaders(),
         body: JSON.stringify(secondPayload),
       });
+      currentTime = trackPerformance('Second OpenAI API call', secondApiStartTime);
       
       if (!secondResponse.ok) {
         const error = await secondResponse.json();
@@ -249,10 +281,13 @@ export async function POST(request: NextRequest) {
         );
       }
       
+      const secondParseStartTime = performance.now();
       const secondData = await secondResponse.json();
       const finalContent = secondData.choices[0].message.content;
+      currentTime = trackPerformance('Second response parsing', secondParseStartTime);
       
       // Extract citations if enabled
+      const citationsStartTime = performance.now();
       const citations = ragConfig.retrieval.includeCitations 
         ? extractCitations(finalContent, toolResults[0].content)
         : [];
@@ -266,8 +301,10 @@ export async function POST(request: NextRequest) {
       if (citations.length > 0) {
         messageWithCitations.citations = citations;
       }
+      currentTime = trackPerformance('Citations extraction', citationsStartTime);
       
       // Assess confidence in the retrieved information
+      const confidenceStartTime = performance.now();
       const confidence = assessConfidence(toolResults[0].content);
       console.log('Response confidence:', confidence);
       
@@ -279,7 +316,9 @@ export async function POST(request: NextRequest) {
       );
       
       console.log(`Needs callback: ${needsCallback}, Reason: ${reason}`);
+      currentTime = trackPerformance('Confidence assessment', confidenceStartTime);
       
+      trackPerformance('Total RAG response time', totalStartTime);
       return NextResponse.json({
         message: messageWithCitations,
         rag: {
@@ -293,6 +332,7 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // Standard response without RAG
+      trackPerformance('Total standard response time', totalStartTime);
       return NextResponse.json({
         message: data.choices[0].message,
         rag: {
@@ -305,6 +345,7 @@ export async function POST(request: NextRequest) {
       });
     }
   } catch (error) {
+    trackPerformance('Total error handling time', totalStartTime);
     console.error('Server error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
