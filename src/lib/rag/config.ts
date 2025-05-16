@@ -5,16 +5,18 @@
 export const ragConfig = {
   // OpenAI API configuration for the Responses API
   openai: {
-    // Base URL for the OpenAI Responses API
-    baseUrl: 'https://api.openai.com/v1/chat/completions',
+    // Base URL for the OpenAI API
+    baseUrl: 'https://api.openai.com/v1',
     // API version header
-    apiVersion: '2023-09-01',
+    apiVersion: '2024-07',
     // Default model for retrievals
-    model: 'gpt-4.1-mini',
+    model: 'gpt-4o-mini',
     // Temperature for retrieval operations (lower for more factual responses)
     temperature: 0.2,
     // Maximum tokens for completion
     maxTokens: 1000,
+    // Vector store ID for file_search
+    vectorStoreId: 'vs_681fd0f386388191b8d84c47a952a96b',
   },
   
   // Configuration for the retrieval functionality

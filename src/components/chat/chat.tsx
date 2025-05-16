@@ -51,6 +51,7 @@ export function Chat() {
       const responseMessage = await sendMessage(apiMessages, {
         enableRAG: ragSettings.enabled,
         enableFunctions: functionSettings.enabled,
+        useDirectRAG: ragSettings.useDirectRAG
       });
 
       // Add assistant's response to the store with citations and confidence if available
@@ -61,9 +62,10 @@ export function Chat() {
         {
           id: newMessageId, // Pass ID so we can reference it immediately
           citations: responseMessage.citations,
-          ragEnabled: responseMessage.citations && responseMessage.citations.length > 0,
-          confidence: responseMessage.citations && responseMessage.citations.length > 0 ? 
-            getConfidenceFromCitations(responseMessage.citations || []) : undefined,
+          ragEnabled: ragSettings.useDirectRAG || (responseMessage.citations && responseMessage.citations.length > 0),
+          confidence: (responseMessage as any).confidence || 
+            (responseMessage.citations && responseMessage.citations.length > 0 ? 
+              getConfidenceFromCitations(responseMessage.citations || []) : undefined),
           needsCallback: responseMessage.callback?.needed,
           callbackReason: responseMessage.callback?.reason,
           showCalendly: responseMessage.calendly?.show

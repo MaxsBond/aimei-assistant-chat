@@ -38,8 +38,10 @@ export interface SearchParams {
 
 // Search results returned from knowledge base
 export interface SearchResults {
+  query: string;
   documents: RetrievedDocument[];
   totalResults: number;
+  error?: string; // Optional error message if search failed
 }
 
 // Function schema for OpenAI to call
@@ -91,11 +93,12 @@ export interface ToolResult {
   content: string; // JSON string of search results
 }
 
-// Extension of existing Message type to include citations
+// Message with citation information for sources
 export interface MessageWithCitations {
   role: string;
   content: string;
   citations?: Citation[];
+  confidence?: number; // Added for direct RAG approach
 }
 
 // RAG request configuration

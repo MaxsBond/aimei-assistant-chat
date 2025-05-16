@@ -9,6 +9,7 @@ export interface Message {
   citations?: Citation[];
   callback?: CallbackInfo;
   showCalendly?: boolean;
+  confidence?: number; // Confidence score from direct RAG
 }
 
 export interface CallbackInfo {
@@ -85,6 +86,7 @@ export async function sendMessage(
   options?: { 
     enableRAG?: boolean, 
     enableFunctions?: boolean,
+    useDirectRAG?: boolean,
     useCustomPrompt?: boolean,
     customPromptContent?: string
   }
@@ -99,6 +101,7 @@ export async function sendMessage(
         messages,
         enableRAG: options?.enableRAG ?? true, // Enable RAG by default
         enableFunctions: options?.enableFunctions ?? true, // Enable functions by default
+        useDirectRAG: options?.useDirectRAG ?? false, // Use direct RAG approach when specified
         useCustomPrompt: options?.useCustomPrompt ?? false, // Use custom prompt if specified
         customPromptContent: options?.customPromptContent // Send the actual prompt content
       }),
