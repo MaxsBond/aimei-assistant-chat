@@ -85,7 +85,14 @@ interface ChatStore {
     callbackReason?: string,
     showCalendly?: boolean
   }) => void;  // Add a new message to the chat
-  updateMessage: (id: string, content: string) => void;      // Update a message's content
+  updateMessage: (id: string, content: string, options?: {
+    citations?: Citation[], 
+    ragEnabled?: boolean, 
+    confidence?: number,
+    needsCallback?: boolean,
+    callbackReason?: string,
+    showCalendly?: boolean
+  }) => void;      // Update a message's content and optionally its metadata
   deleteMessage: (id: string) => void;                       // Delete a specific message
   clearMessages: () => void;                                 // Clear all messages
   getLastMessage: () => Message | undefined;                 // Get the last message in the chat
@@ -158,10 +165,19 @@ export const useChatStore = create<ChatStore>()(
           ],
         })),
       
-      updateMessage: (id, content) =>
+      updateMessage: (id, content, options = {}) =>
         set((state) => ({
           messages: state.messages.map(message => 
-            message.id === id ? { ...message, content } : message
+            message.id === id ? { 
+              ...message, 
+              content,
+              ...(options.citations !== undefined && { citations: options.citations }),
+              ...(options.ragEnabled !== undefined && { ragEnabled: options.ragEnabled }),
+              ...(options.confidence !== undefined && { confidence: options.confidence }),
+              ...(options.needsCallback !== undefined && { needsCallback: options.needsCallback }),
+              ...(options.callbackReason !== undefined && { callbackReason: options.callbackReason }),
+              ...(options.showCalendly !== undefined && { showCalendly: options.showCalendly })
+            } : message
           ),
         })),
         
