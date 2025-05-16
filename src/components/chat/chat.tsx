@@ -6,9 +6,6 @@ import { ChatContainer } from "./chat-container";
 import { ChatInput } from "./chat-input";
 import { SuggestionsContainer } from "./suggestions-container";
 import { sendMessage, getSuggestions, Message as ApiMessage } from "@/lib/api";
-import { CustomPrompt, CustomPromptData } from "./custom-prompt";
-import { CustomPromptManager } from "./custom-prompt-manager";
-import { buildPromptFromCustomData } from "@/lib/promptUtils";
 
 export function Chat() {
   const {
@@ -29,15 +26,8 @@ export function Chat() {
     toggleFunctions,
     updateFunctionSettings,
     setShowCallbackForm,
-    customPromptSettings,
-    toggleCustomPrompt,
-    showCustomPromptForm,
-    setShowCustomPromptForm,
-    addCustomPrompt,
-    getActivePrompt,
   } = useChatStore();
   
-  const [showPromptManager, setShowPromptManager] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
 
   const handleSendMessage = async (content: string) => {
@@ -57,14 +47,10 @@ export function Chat() {
       // Add the new user message in API format
       apiMessages.push({ role: "user", content });
 
-      // Send message to API and get response with RAG, function calling and custom prompt options
+      // Send message to API and get response with RAG and function calling options
       const responseMessage = await sendMessage(apiMessages, {
         enableRAG: ragSettings.enabled,
         enableFunctions: functionSettings.enabled,
-        useCustomPrompt: customPromptSettings.enabled,
-        customPromptContent: customPromptSettings.enabled && getActivePrompt() 
-          ? buildPromptFromCustomData(getActivePrompt()!)
-          : undefined
       });
 
       // Add assistant's response to the store with citations and confidence if available
@@ -122,24 +108,6 @@ export function Chat() {
     handleSendMessage(suggestion.content);
   };
   
-  // Handle custom prompt save
-  const handleSaveCustomPrompt = (promptData: CustomPromptData) => {
-    addCustomPrompt(promptData);
-    setShowCustomPromptForm(false);
-  };
-  
-  // Open the custom prompt editor
-  const handleOpenCustomPromptEditor = () => {
-    setShowCustomPromptForm(true);
-    setShowPromptManager(false);
-  };
-  
-  // Open the prompt manager
-  const handleOpenPromptManager = () => {
-    setShowPromptManager(true);
-    setShowCustomPromptForm(false);
-  };
-  
   // Simple heuristic to estimate confidence from citations
   const getConfidenceFromCitations = (citations: any[]) => {
     if (!citations || citations.length === 0) return undefined;
@@ -153,27 +121,10 @@ export function Chat() {
 
   // Get only unused suggestions for display
   const unusedSuggestions = getUnusedSuggestions();
-  
-  // Get the active custom prompt if any
-  const activePrompt = getActivePrompt();
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-5rem)] max-h-[calc(100vh-5rem)]">
       <div className="flex-1 flex flex-col overflow-hidden rounded-md bg-background/60 shadow-lg">
-        {showCustomPromptForm && (
-          <CustomPrompt 
-            onClose={() => setShowCustomPromptForm(false)}
-            onSave={handleSaveCustomPrompt}
-            currentPrompt={activePrompt || undefined}
-          />
-        )}
-        
-        {showPromptManager && (
-          <CustomPromptManager
-            onClose={() => setShowPromptManager(false)}
-          />
-        )}
-        
         <ChatContainer 
           messages={messages} 
           isLoading={isLoading} 

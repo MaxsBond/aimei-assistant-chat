@@ -20,7 +20,7 @@ export const ragConfig = {
   // Configuration for the retrieval functionality
   retrieval: {
     // Maximum number of documents to retrieve
-    maxResults: 5,
+    maxResults: 3,
     // Minimum relevance score (0-1) for retrieved documents to be used
     minRelevanceScore: 0.75,
     // Whether to include citations in the response

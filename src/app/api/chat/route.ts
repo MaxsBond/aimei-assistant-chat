@@ -17,7 +17,6 @@ import { MessageWithCitations, ToolCallResponse } from '@/lib/rag/types';
 import { createOpenAIHeaders } from '@/lib/rag/auth';
 import { ragConfig } from '@/lib/rag/config';
 import { manageContextWindow } from '@/lib/rag/context-manager';
-import { getActiveSystemPrompt } from '@/lib/promptUtils';
 import { useChatStore } from '@/lib/store';
 
 // Rate limiting variables
@@ -57,7 +56,6 @@ export async function POST(request: NextRequest) {
     const messages: Message[] = body.messages;
     const enableRAG: boolean = body.enableRAG ?? true; // Enable RAG by default
     const enableFunctions: boolean = body.enableFunctions ?? true; // Enable function calling by default
-    const useCustomPrompt: boolean = body.useCustomPrompt ?? false; // Whether to use custom prompt
     const customPromptContent: string | undefined = body.customPromptContent; // Get custom prompt content
 
     if (!messages || !Array.isArray(messages)) {
@@ -79,17 +77,14 @@ export async function POST(request: NextRequest) {
     // Determine which system prompt to use
     let systemPrompt = config.openai.systemPrompt;
     
-    // If custom prompt is requested and we have content, use it
-    if (useCustomPrompt && customPromptContent) {
+    // If we have custom prompt content, use it (for backward compatibility)
+    if (customPromptContent) {
       systemPrompt = customPromptContent;
-    } else if (useCustomPrompt) {
-      // Fallback to getActiveSystemPrompt if we have useCustomPrompt but no content
-      systemPrompt = getActiveSystemPrompt();
     }
 
     // Add system message if not already present
     const systemMessageExists = messages.some(msg => msg.role === 'system');
-    const messagesWithSystem = useCustomPrompt && customPromptContent 
+    const messagesWithSystem = customPromptContent 
       ? [{ role: 'system' as MessageRole, content: customPromptContent }, ...messages]
       : [{ role: 'system' as MessageRole, content: systemPrompt }, ...messages];
 

@@ -5,8 +5,6 @@ import {
   BookX, 
   Wrench, 
   SlashIcon, 
-  MessageSquare, 
-  Settings, 
   Trash2,
   ChevronDown,
   ChevronUp 
@@ -26,10 +24,6 @@ export function ChatControls() {
     toggleRAG,
     functionSettings,
     toggleFunctions,
-    customPromptSettings,
-    toggleCustomPrompt,
-    setShowCustomPromptForm,
-    getActivePrompt,
   } = useChatStore();
   
   const handleClearChat = () => {
@@ -39,16 +33,9 @@ export function ChatControls() {
     }
   };
   
-  const handleOpenPromptManager = () => {
-    setShowCustomPromptForm(true);
-  };
-  
   const toggleExpand = () => {
     setIsExpanded(!isExpanded);
   };
-  
-  // Get the active custom prompt if any
-  const activePrompt = getActivePrompt();
 
   return (
     <div className="flex flex-col w-full mb-2 bg-background/60 rounded-md transition-all duration-300">
@@ -126,35 +113,6 @@ export function ChatControls() {
                   <span>Functions: OFF</span>
                 </>
               )}
-            </button>
-            
-            <button
-              onClick={toggleCustomPrompt}
-              className={`flex items-center gap-1 text-sm px-2 py-1 rounded-md ${
-                customPromptSettings.enabled && activePrompt 
-                  ? 'bg-primary/10 text-primary' 
-                  : 'bg-muted text-muted-foreground'
-              }`}
-            >
-              {customPromptSettings.enabled && activePrompt ? (
-                <>
-                  <MessageSquare className="w-4 h-4" />
-                  <span>{`Custom: ${activePrompt.name}`}</span>
-                </>
-              ) : (
-                <>
-                  <MessageSquare className="w-4 h-4" />
-                  <span>Custom Prompt: OFF</span>
-                </>
-              )}
-            </button>
-            
-            <button
-              onClick={handleOpenPromptManager}
-              className="flex items-center gap-1 text-sm px-2 py-1 rounded-md bg-muted text-muted-foreground hover:bg-muted/80"
-              title="Manage Custom Prompts"
-            >
-              <Settings className="w-4 h-4" />
             </button>
           </div>
         </div>
