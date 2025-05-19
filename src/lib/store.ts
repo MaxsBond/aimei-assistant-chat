@@ -62,6 +62,14 @@ export interface FunctionSettings {
 }
 
 /**
+ * Settings for custom prompt customization
+ */
+export interface CustomPromptSettings {
+  enabled: boolean;
+  content: string;
+}
+
+/**
  * Chat store state and actions interface
  */
 interface ChatStore {
@@ -71,6 +79,7 @@ interface ChatStore {
   suggestions: Suggestion[];   // Follow-up suggestions for the user
   ragSettings: RAGSettings;    // RAG settings
   functionSettings: FunctionSettings; // Function calling settings
+  customPromptSettings: CustomPromptSettings; // Custom prompt settings
   callbackRequests: CallbackRequest[]; // Phone callback requests
   showCallbackForm: boolean;   // Whether to show the callback form
   activeCallbackMessageId: string | null; // ID of message triggering the callback form
@@ -116,6 +125,10 @@ interface ChatStore {
   updateFunctionSettings: (settings: Partial<FunctionSettings>) => void; // Update function settings
   toggleFunctions: () => void;                                          // Toggle functions on/off
 
+  // Custom Prompt Actions
+  updateCustomPromptSettings: (settings: Partial<CustomPromptSettings>) => void;
+  toggleCustomPrompt: () => void;
+
   // Callback Actions
   setShowCallbackForm: (show: boolean, messageId?: string | null) => void;   // Show/hide the callback form
   addCallbackRequest: (phoneNumber: string, query: string, messageId: string) => void; // Add a callback request
@@ -140,6 +153,10 @@ export const useChatStore = create<ChatStore>()(
       },
       functionSettings: {
         enabled: true,
+      },
+      customPromptSettings: {
+        enabled: false,
+        content: '',
       },
       callbackRequests: [],
       showCallbackForm: false,
@@ -266,6 +283,20 @@ export const useChatStore = create<ChatStore>()(
           },
         })),
 
+      // Custom Prompt Actions
+      updateCustomPromptSettings: (settings) =>
+        set((state) => ({
+          customPromptSettings: { ...state.customPromptSettings, ...settings },
+        })),
+        
+      toggleCustomPrompt: () =>
+        set((state) => ({
+          customPromptSettings: { 
+            ...state.customPromptSettings, 
+            enabled: !state.customPromptSettings.enabled,
+          },
+        })),
+
       // Callback Actions
       setShowCallbackForm: (show, messageId = null) => 
         set({
@@ -306,6 +337,7 @@ export const useChatStore = create<ChatStore>()(
         suggestions: state.suggestions,
         ragSettings: state.ragSettings,
         functionSettings: state.functionSettings,
+        customPromptSettings: state.customPromptSettings,
         callbackRequests: state.callbackRequests,
       }), // persist all settings
     }

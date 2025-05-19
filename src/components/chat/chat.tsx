@@ -25,6 +25,7 @@ export function Chat() {
     functionSettings,
     toggleFunctions,
     updateFunctionSettings,
+    customPromptSettings,
     setShowCallbackForm,
   } = useChatStore();
   
@@ -57,6 +58,8 @@ export function Chat() {
       const responseMessage = await sendMessage(apiMessages, {
         enableRAG: ragSettings.enabled,
         enableFunctions: functionSettings.enabled,
+        useCustomPrompt: customPromptSettings.enabled,
+        customPromptContent: customPromptSettings.content,
         // Handle streaming chunks
         onChunk: (chunk) => {
           // Incrementally update the message content as chunks arrive
