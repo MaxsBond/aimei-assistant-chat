@@ -62,6 +62,14 @@ export interface FunctionSettings {
 }
 
 /**
+ * Settings for custom prompt customization
+ */
+export interface CustomPromptSettings {
+  enabled: boolean;
+  content: string;
+}
+
+/**
  * Chat store state and actions interface
  */
 interface ChatStore {
@@ -71,6 +79,7 @@ interface ChatStore {
   suggestions: Suggestion[];   // Follow-up suggestions for the user
   ragSettings: RAGSettings;    // RAG settings
   functionSettings: FunctionSettings; // Function calling settings
+  customPromptSettings: CustomPromptSettings; // Custom prompt settings
   callbackRequests: CallbackRequest[]; // Phone callback requests
   showCallbackForm: boolean;   // Whether to show the callback form
   activeCallbackMessageId: string | null; // ID of message triggering the callback form
@@ -85,7 +94,14 @@ interface ChatStore {
     callbackReason?: string,
     showCalendly?: boolean
   }) => void;  // Add a new message to the chat
-  updateMessage: (id: string, content: string) => void;      // Update a message's content
+  updateMessage: (id: string, content: string, options?: {
+    citations?: Citation[], 
+    ragEnabled?: boolean, 
+    confidence?: number,
+    needsCallback?: boolean,
+    callbackReason?: string,
+    showCalendly?: boolean
+  }) => void;      // Update a message's content and optionally its metadata
   deleteMessage: (id: string) => void;                       // Delete a specific message
   clearMessages: () => void;                                 // Clear all messages
   getLastMessage: () => Message | undefined;                 // Get the last message in the chat
@@ -108,6 +124,10 @@ interface ChatStore {
   // Function Settings Actions
   updateFunctionSettings: (settings: Partial<FunctionSettings>) => void; // Update function settings
   toggleFunctions: () => void;                                          // Toggle functions on/off
+
+  // Custom Prompt Actions
+  updateCustomPromptSettings: (settings: Partial<CustomPromptSettings>) => void;
+  toggleCustomPrompt: () => void;
 
   // Callback Actions
   setShowCallbackForm: (show: boolean, messageId?: string | null) => void;   // Show/hide the callback form
@@ -134,6 +154,10 @@ export const useChatStore = create<ChatStore>()(
       functionSettings: {
         enabled: true,
       },
+      customPromptSettings: {
+        enabled: false,
+        content: '',
+      },
       callbackRequests: [],
       showCallbackForm: false,
       activeCallbackMessageId: null,
@@ -158,10 +182,19 @@ export const useChatStore = create<ChatStore>()(
           ],
         })),
       
-      updateMessage: (id, content) =>
+      updateMessage: (id, content, options = {}) =>
         set((state) => ({
           messages: state.messages.map(message => 
-            message.id === id ? { ...message, content } : message
+            message.id === id ? { 
+              ...message, 
+              content,
+              ...(options.citations !== undefined && { citations: options.citations }),
+              ...(options.ragEnabled !== undefined && { ragEnabled: options.ragEnabled }),
+              ...(options.confidence !== undefined && { confidence: options.confidence }),
+              ...(options.needsCallback !== undefined && { needsCallback: options.needsCallback }),
+              ...(options.callbackReason !== undefined && { callbackReason: options.callbackReason }),
+              ...(options.showCalendly !== undefined && { showCalendly: options.showCalendly })
+            } : message
           ),
         })),
         
@@ -250,6 +283,20 @@ export const useChatStore = create<ChatStore>()(
           },
         })),
 
+      // Custom Prompt Actions
+      updateCustomPromptSettings: (settings) =>
+        set((state) => ({
+          customPromptSettings: { ...state.customPromptSettings, ...settings },
+        })),
+        
+      toggleCustomPrompt: () =>
+        set((state) => ({
+          customPromptSettings: { 
+            ...state.customPromptSettings, 
+            enabled: !state.customPromptSettings.enabled,
+          },
+        })),
+
       // Callback Actions
       setShowCallbackForm: (show, messageId = null) => 
         set({
@@ -290,6 +337,7 @@ export const useChatStore = create<ChatStore>()(
         suggestions: state.suggestions,
         ragSettings: state.ragSettings,
         functionSettings: state.functionSettings,
+        customPromptSettings: state.customPromptSettings,
         callbackRequests: state.callbackRequests,
       }), // persist all settings
     }

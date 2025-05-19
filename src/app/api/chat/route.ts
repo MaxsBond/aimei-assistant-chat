@@ -261,16 +261,17 @@ export async function POST(request: NextRequest) {
         ],
         temperature: ragConfig.openai.temperature, // Use RAG-specific temperature
         max_tokens: ragConfig.openai.maxTokens,
+        stream: true,
       };
       
-      console.log(`⏱️ PERF: Starting second OpenAI API call...`);
+      console.log(`⏱️ PERF: Starting second OpenAI API call with streaming enabled...`);
       const secondApiStartTime = performance.now();
       const secondResponse = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: createOpenAIHeaders(),
         body: JSON.stringify(secondPayload),
       });
-      currentTime = trackPerformance('Second OpenAI API call', secondApiStartTime);
+      currentTime = trackPerformance('Second OpenAI API call connection', secondApiStartTime);
       
       if (!secondResponse.ok) {
         const error = await secondResponse.json();
@@ -281,55 +282,161 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      const secondParseStartTime = performance.now();
-      const secondData = await secondResponse.json();
-      const finalContent = secondData.choices[0].message.content;
-      currentTime = trackPerformance('Second response parsing', secondParseStartTime);
-      
-      // Extract citations if enabled
-      const citationsStartTime = performance.now();
-      const citations = ragConfig.retrieval.includeCitations 
-        ? extractCitations(finalContent, toolResults[0].content)
-        : [];
-      
-      // Create response with citations
-      const messageWithCitations: MessageWithCitations = {
-        role: 'assistant',
-        content: finalContent,
-      };
-      
-      if (citations.length > 0) {
-        messageWithCitations.citations = citations;
-      }
-      currentTime = trackPerformance('Citations extraction', citationsStartTime);
-      
-      // Assess confidence in the retrieved information
-      const confidenceStartTime = performance.now();
-      const confidence = assessConfidence(toolResults[0].content);
-      console.log('Response confidence:', confidence);
-      
-      // Determine if the response needs a callback option
-      const { needsCallback, reason } = checkIfNeedsCallback(
-        confidence, 
-        finalContent,
-        citations.length
-      );
-      
-      console.log(`Needs callback: ${needsCallback}, Reason: ${reason}`);
-      currentTime = trackPerformance('Confidence assessment', confidenceStartTime);
-      
-      trackPerformance('Total RAG response time', totalStartTime);
-      return NextResponse.json({
-        message: messageWithCitations,
-        rag: {
-          used: true,
-          confidence: confidence.score,
-        },
-        callback: {
-          needed: needsCallback,
-          reason: reason
+      // Handle streaming response
+      if (secondResponse.headers.get('content-type')?.includes('text/event-stream')) {
+        console.log(`⏱️ STREAM: Starting to process streaming response...`);
+        const streamStartTime = performance.now();
+        
+        // Set up streaming response
+        const streamingResponse = new ReadableStream({
+          async start(controller) {
+            let accumulatedContent = '';
+            let chunkCount = 0;
+            let firstChunkTime = 0;
+            
+            try {
+              const reader = secondResponse.body?.getReader();
+              if (!reader) {
+                throw new Error('Failed to get reader from response');
+              }
+              
+              // Process the stream
+              const decoder = new TextDecoder();
+              let done = false;
+              
+              console.log(`⏱️ STREAM: Waiting for first chunk...`);
+              while (!done) {
+                const { value, done: doneReading } = await reader.read();
+                done = doneReading;
+                
+                if (done) {
+                  console.log(`⏱️ STREAM: Completed reading stream after ${chunkCount} chunks`);
+                  break;
+                }
+                
+                // Process this chunk
+                const chunk = decoder.decode(value, { stream: true });
+                if (chunkCount === 0) {
+                  firstChunkTime = performance.now() - streamStartTime;
+                  console.log(`⏱️ STREAM: Received first chunk after ${firstChunkTime.toFixed(2)}ms`);
+                }
+                chunkCount++;
+                
+                // Parse the SSE format
+                const lines = chunk.split('\n').filter(line => line.trim() !== '');
+                for (const line of lines) {
+                  if (line.startsWith('data: ')) {
+                    const data = line.slice(6);
+                    
+                    // Handle the completion case
+                    if (data === '[DONE]') {
+                      console.log(`⏱️ STREAM: Received [DONE] signal`);
+                      continue;
+                    }
+                    
+                    try {
+                      const parsedData = JSON.parse(data);
+                      if (parsedData.choices && parsedData.choices[0].delta.content) {
+                        accumulatedContent += parsedData.choices[0].delta.content;
+                      }
+                      
+                      // Send the chunk to the client
+                      controller.enqueue(new TextEncoder().encode(`data: ${data}\n\n`));
+                      
+                      if (chunkCount % 10 === 0) {
+                        console.log(`⏱️ STREAM: Processed ${chunkCount} chunks so far, ${(performance.now() - streamStartTime).toFixed(2)}ms elapsed`);
+                      }
+                    } catch (err) {
+                      console.error(`Error parsing SSE data: ${err}`);
+                    }
+                  }
+                }
+              }
+              
+              const streamEndTime = performance.now();
+              const totalStreamTime = streamEndTime - streamStartTime;
+              console.log(`⏱️ STREAM: Total streaming time: ${totalStreamTime.toFixed(2)}ms for ${chunkCount} chunks`);
+              console.log(`⏱️ STREAM: Average chunk processing time: ${(totalStreamTime / Math.max(chunkCount, 1)).toFixed(2)}ms per chunk`);
+              console.log(`⏱️ STREAM: Time to first chunk: ${firstChunkTime.toFixed(2)}ms`);
+              
+              // Process the final content once streaming is complete
+              if (ragConfig.retrieval.includeCitations) {
+                const citations = extractCitations(accumulatedContent, toolResults[0].content);
+                console.log(`⏱️ STREAM: Extracted ${citations.length} citations from streamed content`);
+              }
+              
+              trackPerformance('Total streaming response time', totalStartTime);
+            } catch (error) {
+              console.error('Error processing stream:', error);
+              controller.error(error);
+            } finally {
+              controller.close();
+            }
+          }
+        });
+        
+        // Return the streaming response
+        return new Response(streamingResponse, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache, no-transform',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no' // Prevents Nginx from buffering the response
+          }
+        });
+      } else {
+        // Handle non-streaming response (fallback)
+        console.log(`⏱️ PERF: Non-streaming response received despite stream:true setting`);
+        const secondParseStartTime = performance.now();
+        const secondData = await secondResponse.json();
+        const finalContent = secondData.choices[0].message.content;
+        currentTime = trackPerformance('Second response parsing', secondParseStartTime);
+        
+        // Extract citations if enabled
+        const citationsStartTime = performance.now();
+        const citations = ragConfig.retrieval.includeCitations 
+          ? extractCitations(finalContent, toolResults[0].content)
+          : [];
+        
+        // Create response with citations
+        const messageWithCitations: MessageWithCitations = {
+          role: 'assistant',
+          content: finalContent,
+        };
+        
+        if (citations.length > 0) {
+          messageWithCitations.citations = citations;
         }
-      });
+        currentTime = trackPerformance('Citations extraction', citationsStartTime);
+        
+        // Assess confidence in the retrieved information
+        const confidenceStartTime = performance.now();
+        const confidence = assessConfidence(toolResults[0].content);
+        console.log('Response confidence:', confidence);
+        
+        // Determine if the response needs a callback option
+        const { needsCallback, reason } = checkIfNeedsCallback(
+          confidence, 
+          finalContent,
+          citations.length
+        );
+        
+        console.log(`Needs callback: ${needsCallback}, Reason: ${reason}`);
+        currentTime = trackPerformance('Confidence assessment', confidenceStartTime);
+        
+        trackPerformance('Total RAG response time', totalStartTime);
+        return NextResponse.json({
+          message: messageWithCitations,
+          rag: {
+            used: true,
+            confidence: confidence.score,
+          },
+          callback: {
+            needed: needsCallback,
+            reason: reason
+          }
+        });
+      }
     } else {
       // Standard response without RAG
       trackPerformance('Total standard response time', totalStartTime);

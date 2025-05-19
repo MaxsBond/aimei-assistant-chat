@@ -7,14 +7,18 @@ import {
   SlashIcon, 
   Trash2,
   ChevronDown,
-  ChevronUp 
+  ChevronUp,
+  Settings,
+  MessageSquare
 } from "lucide-react";
 import { useChatStore } from "@/lib/store";
 import { ThemeToggle } from "../theme/theme-toggle";
 import { useState } from "react";
+import { CustomPromptEditor } from "@/components/chat/custom-prompt-editor";
 
 export function ChatControls() {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showPromptEditor, setShowPromptEditor] = useState(false);
   const {
     messages,
     clearMessages,
@@ -24,6 +28,8 @@ export function ChatControls() {
     toggleRAG,
     functionSettings,
     toggleFunctions,
+    customPromptSettings,
+    toggleCustomPrompt,
   } = useChatStore();
   
   const handleClearChat = () => {
@@ -35,6 +41,13 @@ export function ChatControls() {
   
   const toggleExpand = () => {
     setIsExpanded(!isExpanded);
+  };
+  
+  const togglePromptEditor = () => {
+    if (!isExpanded) {
+      setIsExpanded(true);
+    }
+    setShowPromptEditor(!showPromptEditor);
   };
 
   return (
@@ -114,9 +127,47 @@ export function ChatControls() {
                 </>
               )}
             </button>
+            
+            <button
+              onClick={toggleCustomPrompt}
+              className={`flex items-center gap-1 text-sm px-2 py-1 rounded-md ${
+                customPromptSettings.enabled 
+                  ? 'bg-primary/10 text-primary' 
+                  : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              {customPromptSettings.enabled ? (
+                <>
+                  <MessageSquare className="w-4 h-4" />
+                  <span>Custom Prompt: ON</span>
+                </>
+              ) : (
+                <>
+                  <div className="relative w-4 h-4">
+                    <MessageSquare className="w-4 h-4" />
+                    <SlashIcon className="w-4 h-4 absolute top-0 left-0 text-red-500" />
+                  </div>
+                  <span>Custom Prompt: OFF</span>
+                </>
+              )}
+            </button>
+            
+            <button
+              onClick={togglePromptEditor}
+              className={`flex items-center gap-1 text-sm px-2 py-1 rounded-md ${
+                customPromptSettings.enabled 
+                  ? 'bg-primary/10 text-primary' 
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              <Settings className="w-4 h-4" />
+              <span>Edit Prompt</span>
+            </button>
           </div>
         </div>
       )}
+      
+      {showPromptEditor && <CustomPromptEditor onClose={togglePromptEditor} />}
     </div>
   );
 } 

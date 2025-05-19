@@ -1,20 +1,20 @@
 {
   "models": {
     "main": {
-      "provider": "openrouter",
-      "modelId": "mistralai/mistral-small-3.1-24b-instruct:free",
+      "provider": "anthropic",
+      "modelId": "claude-3-7-sonnet-20250219",
       "maxTokens": 120000,
       "temperature": 0.2
     },
     "research": {
-      "provider": "openrouter",
-      "modelId": "google/gemini-2.5-pro-exp-03-25",
+      "provider": "anthropic",
+      "modelId": "claude-3-7-sonnet-20250219",
       "maxTokens": 8700,
       "temperature": 0.1
     },
     "fallback": {
-      "provider": "anthropic",
-      "modelId": "claude-3.5-sonnet-20240620",
+      "provider": "openai",
+      "modelId": "gpt-4o",
       "maxTokens": 120000,
       "temperature": 0.1
     }

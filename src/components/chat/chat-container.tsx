@@ -5,6 +5,8 @@ import { Message } from "@/lib/store";
 import { MessageItem } from "./message-item";
 import Image from "next/image";
 import { WelcomeSuggestions } from "./welcome-suggestions";
+import { useChatStore } from "@/lib/store";
+import { MessageSquare } from "lucide-react";
 
 interface ChatContainerProps {
   messages: Message[];
@@ -16,6 +18,7 @@ export function ChatContainer({ messages, isLoading = false, onSendMessage }: Ch
   const containerRef = useRef<HTMLDivElement>(null);
   const shouldScrollRef = useRef(true);
   const lastMessageCountRef = useRef(0);
+  const { customPromptSettings } = useChatStore();
 
   // Detect if user has scrolled up manually
   useEffect(() => {
@@ -76,8 +79,15 @@ export function ChatContainer({ messages, isLoading = false, onSendMessage }: Ch
   return (
     <div 
       ref={containerRef}
-      className="flex-1 overflow-y-auto px-10 py-10 md:px-12 scroll-smooth"
+      className="flex-1 overflow-y-auto px-10 py-10 md:px-12 scroll-smooth relative"
     >
+      {customPromptSettings.enabled && (
+        <div className="absolute top-2 right-2 text-xs bg-primary/10 text-primary rounded-md px-2 py-1 flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity">
+          <MessageSquare className="w-3 h-3" />
+          <span>Custom Prompt</span>
+        </div>
+      )}
+      
       {messages.length === 0 && (
         <div className="h-full flex items-center justify-center">
           <div className="text-center p-6 max-w-xl">
